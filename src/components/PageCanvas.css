@@ -1,0 +1,197 @@
+.page-canvas-container {
+  position: relative;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin: 16px auto;
+}
+
+.page-canvas {
+  display: block;
+  cursor: default;
+}
+
+.page-canvas.tool-select {
+  cursor: default;
+}
+
+.page-canvas.tool-pan {
+  cursor: grab;
+}
+
+.page-canvas.tool-pan:active {
+  cursor: grabbing;
+}
+
+.page-canvas.tool-highlight,
+.page-canvas.tool-rectangle,
+.page-canvas.tool-circle {
+  cursor: crosshair;
+}
+
+.page-canvas.tool-text {
+  cursor: text;
+}
+
+.page-canvas.tool-draw {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="%23ff0000"/></svg>') 12 12, crosshair;
+}
+
+.page-canvas.tool-arrow {
+  cursor: crosshair;
+}
+
+.page-canvas.tool-signature {
+  cursor: pointer;
+}
+
+.page-canvas.tool-eraser {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="%23fff" stroke="%23333" stroke-width="2"/></svg>') 12 12, pointer;
+}
+
+/* Text layer for text selection - matching PDF.js styles */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.textLayer.active {
+  pointer-events: auto;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.25);
+  border-radius: 4px;
+}
+
+.textLayer .highlight.selected {
+  background-color: rgba(0, 100, 0, 0.25);
+}
+
+.textLayer .search-highlight-mark {
+  background-color: rgba(255, 200, 0, 0.7) !important;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #ff8c00;
+}
+
+.textLayer ::selection {
+  background: rgba(0, 100, 255, 0.4);
+}
+
+.textLayer ::-moz-selection {
+  background: rgba(0, 100, 255, 0.4);
+}
+
+/* Search highlight overlay */
+.search-highlight {
+  position: absolute;
+  background-color: rgba(255, 255, 0, 0.5);
+  border: 2px solid #ffa500;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 3;
+  animation: pulse 1s ease-in-out 2;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.annotation-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.page-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Inline text input */
+.inline-text-input {
+  position: absolute;
+  z-index: 10;
+  min-width: 100px;
+  min-height: 24px;
+  padding: 4px 6px;
+  border: 2px solid var(--accent-color);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #000;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.inline-text-input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+/* Dragging state */
+.page-canvas-container.dragging-annotation {
+  cursor: move;
+}
+
+.page-canvas-container.dragging-annotation * {
+  cursor: move !important;
+}
