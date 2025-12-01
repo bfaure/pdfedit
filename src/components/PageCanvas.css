@@ -195,3 +195,272 @@
 .page-canvas-container.dragging-annotation * {
   cursor: move !important;
 }
+
+/* Resizing state */
+.page-canvas-container.resizing-annotation {
+  cursor: nwse-resize;
+}
+
+/* Selected annotation */
+.annotation-element.selected {
+  position: relative;
+}
+
+/* Text format toolbar */
+.text-format-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border-color, #e1e8ed);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  white-space: nowrap;
+}
+
+.text-format-toolbar .font-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border-color, #e1e8ed);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, #fff);
+  color: var(--text-color, #1a2237);
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.text-format-toolbar .size-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border-color, #e1e8ed);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, #fff);
+  color: var(--text-color, #1a2237);
+  cursor: pointer;
+  min-width: 60px;
+}
+
+.text-format-toolbar .color-input {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color, #e1e8ed);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  background: none;
+}
+
+.text-format-toolbar .color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.text-format-toolbar .color-input::-webkit-color-swatch {
+  border-radius: 4px;
+  border: none;
+}
+
+.text-format-toolbar select:focus,
+.text-format-toolbar input:focus {
+  outline: 2px solid var(--accent-color, #02B7FF);
+  outline-offset: -1px;
+}
+
+.text-format-toolbar .toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color, #e1e8ed);
+  margin: 0 4px;
+}
+
+.text-format-toolbar .bg-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.text-format-toolbar .bg-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.text-format-toolbar .bg-toggle .bg-icon {
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #e1e8ed);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, #fff);
+  color: var(--text-muted, #657786);
+  transition: all 0.15s ease;
+}
+
+.text-format-toolbar .bg-toggle input[type="checkbox"]:checked + .bg-icon {
+  background: var(--accent-color, #02B7FF);
+  color: white;
+  border-color: var(--accent-color, #02B7FF);
+}
+
+.text-format-toolbar .opacity-slider {
+  width: 60px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--accent-color, #02B7FF);
+}
+
+/* Text input container with resize handles */
+.text-input-container {
+  z-index: 10;
+  border: 2px solid var(--accent-color, #02B7FF);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.text-input-container.dragging {
+  cursor: move;
+}
+
+.text-input-container.resizing {
+  cursor: inherit;
+}
+
+/* Drag handle at top of text input */
+.text-input-drag-handle {
+  height: 16px;
+  background: var(--accent-color, #02B7FF);
+  border-radius: 2px 2px 0 0;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.text-input-drag-handle::before,
+.text-input-drag-handle::after {
+  content: '';
+  width: 20px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 1px;
+}
+
+.text-input-drag-handle::after {
+  display: none;
+}
+
+.text-input-container .inline-text-input {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: #000;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  min-width: unset;
+  min-height: unset;
+  cursor: text;
+}
+
+/* Confirm button for text input */
+.text-input-confirm {
+  position: absolute;
+  bottom: -12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-color, #02B7FF);
+  color: white;
+  border: 2px solid white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 12;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.text-input-confirm:hover {
+  background: var(--accent-hover, #33C4FF);
+  transform: scale(1.1);
+}
+
+.text-input-confirm:active {
+  background: var(--accent-active, #0195D4);
+  transform: scale(0.95);
+}
+
+/* Text input resize handles - all 8 handles */
+.text-input-resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-color, #02B7FF);
+  border: 1px solid white;
+  border-radius: 2px;
+  z-index: 11;
+}
+
+/* Corner handles */
+.text-input-resize-handle.nw {
+  top: -4px;
+  left: -4px;
+  cursor: nwse-resize;
+}
+
+.text-input-resize-handle.ne {
+  top: -4px;
+  right: -4px;
+  cursor: nesw-resize;
+}
+
+.text-input-resize-handle.sw {
+  bottom: -4px;
+  left: -4px;
+  cursor: nesw-resize;
+}
+
+.text-input-resize-handle.se {
+  bottom: -4px;
+  right: -4px;
+  cursor: nwse-resize;
+}
+
+/* Edge handles */
+.text-input-resize-handle.n {
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.text-input-resize-handle.s {
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.text-input-resize-handle.w {
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.text-input-resize-handle.e {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}

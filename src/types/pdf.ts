@@ -16,6 +16,9 @@ export interface Annotation {
   content?: string;
   color?: string;
   fontSize?: number;
+  fontFamily?: string;
+  backgroundColor?: string;
+  backgroundOpacity?: number;
   points?: { x: number; y: number }[];
 }
 

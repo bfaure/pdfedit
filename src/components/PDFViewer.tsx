@@ -9,13 +9,11 @@ interface PDFViewerProps {
 }
 
 export function PDFViewer({ isPrinting }: PDFViewerProps) {
-  const { state, settings, pdfDocument, setCurrentPage, setScale, currentTool, fitToPageRequest } = usePDF();
+  const { state, settings, pdfDocument, setCurrentPage, setScale, currentTool, fitToPageRequest, isProgrammaticNavigation } = usePDF();
   const [pages, setPages] = useState<Map<number, PDFPageProxy>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const hasSetInitialScale = useRef(false);
-  const isScrollingToPage = useRef(false);
-  const scrollTimeoutRef = useRef<number | null>(null);
   const isInitialMount = useRef(true);
   const currentPageRef = useRef(state.currentPage);
 
@@ -110,29 +108,16 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
     if (settings.continuousScroll) {
       const pageEl = pageRefs.current.get(state.currentPage);
       if (pageEl) {
-        // Set flag to prevent scroll handler from overriding during animation
-        isScrollingToPage.current = true;
+        // Calculate page distance to determine scroll behavior
+        const pageDistance = Math.abs(state.currentPage - currentPageRef.current);
 
-        // Clear any existing timeout
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
+        // Use instant scroll for long jumps (more than 5 pages), smooth for short jumps
+        // Long smooth scrolls can take longer than our timeout and cause issues
+        const scrollBehavior = pageDistance > 5 ? 'instant' : 'smooth';
 
-        pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Reset flag after scroll animation completes (roughly 500ms for smooth scroll)
-        scrollTimeoutRef.current = window.setTimeout(() => {
-          isScrollingToPage.current = false;
-        }, 500);
+        pageEl.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
       }
     }
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
   }, [state.currentPage, settings.continuousScroll]);
 
   // Keep currentPageRef in sync
@@ -142,8 +127,8 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
 
   // Track visible pages in continuous scroll mode (or print mode)
   const handleScroll = useCallback(() => {
-    // Skip if we're programmatically scrolling to a page (prevents fighting with navigation)
-    if (!containerRef.current || isScrollingToPage.current) return;
+    // Skip if we're programmatically navigating (prevents fighting with navigation)
+    if (!containerRef.current || isProgrammaticNavigation) return;
     // Only track scroll when multiple pages are visible (continuous scroll or print mode)
     if (!settings.continuousScroll && !isPrinting) return;
 
@@ -172,7 +157,7 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
     if (topMostPage !== currentPageRef.current) {
       setCurrentPage(topMostPage);
     }
-  }, [settings.continuousScroll, isPrinting, setCurrentPage]);
+  }, [settings.continuousScroll, isPrinting, setCurrentPage, isProgrammaticNavigation]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -183,7 +168,8 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
     // Use IntersectionObserver for more reliable visibility detection
     const observer = new IntersectionObserver(
       (entries) => {
-        if (isScrollingToPage.current) return;
+        // Skip if we're programmatically navigating
+        if (isProgrammaticNavigation) return;
 
         // Find the most visible page (highest intersection ratio near top)
         let bestPage = currentPageRef.current;
@@ -228,7 +214,7 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
       observer.disconnect();
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [handleScroll, settings.continuousScroll, setCurrentPage, pages.size]);
+  }, [handleScroll, settings.continuousScroll, setCurrentPage, pages.size, isProgrammaticNavigation]);
 
   // Clean up stale refs when rendered pages change
   useEffect(() => {

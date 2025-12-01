@@ -39,11 +39,27 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   // Inline text editing state
   const [textInputPosition, setTextInputPosition] = useState<{ x: number; y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState('');
+  const [textInputSize, setTextInputSize] = useState<{ width: number; height: number }>({ width: 150, height: 30 });
+  const [textInputFontSize, setTextInputFontSize] = useState(16);
+  const [textInputFontFamily, setTextInputFontFamily] = useState('Inter, sans-serif');
+  const [textInputColor, setTextInputColor] = useState('#000000');
+  const [textInputBgColor, setTextInputBgColor] = useState<string | undefined>(undefined);
+  const [textInputBgOpacity, setTextInputBgOpacity] = useState(100);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
+  const textInputContainerRef = useRef<HTMLDivElement>(null);
+  const [textInputResizing, setTextInputResizing] = useState<string | null>(null);
 
   // Annotation dragging state
   const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Selected annotation state
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+
+  // Resize state
+  const [resizing, setResizing] = useState<{ annotationId: string; handle: string } | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Get page-specific rotation
   const pageRotation = state.pageRotations.get(pageNumber) || 0;
@@ -209,6 +225,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (currentTool === 'select' || currentTool === 'pan') return;
+      // Don't start drawing if text input is open
+      if (currentTool === 'text' && textInputPosition) return;
 
       const coords = getCoordinates(e);
       setIsDrawing(true);
@@ -246,7 +264,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
         });
       }
     },
-    [currentTool, getCoordinates, pageNumber, updateCurrentDrawing]
+    [currentTool, getCoordinates, pageNumber, updateCurrentDrawing, textInputPosition]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -539,9 +557,21 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
       if (draggingAnnotation) return;
 
       if (currentTool === 'text') {
+        // If text input is already open, don't create a new one - user must confirm or cancel first
+        if (textInputPosition) return;
+
         const coords = getCoordinates(e);
-        setTextInputPosition(coords);
+        // Offset y position upward so text appears at click point, not below it
+        const fontSize = 16;
+        setTextInputPosition({ x: coords.x, y: coords.y - fontSize });
         setTextInputValue('');
+        setTextInputSize({ width: 150, height: 40 });
+        setTextInputFontSize(16);
+        setTextInputFontFamily('Inter, sans-serif');
+        setTextInputColor('#000000');
+        setTextInputBgColor(undefined);
+        setTextInputBgOpacity(100);
+        setEditingAnnotationId(null);
         // Focus the input after it renders
         setTimeout(() => textInputRef.current?.focus(), 0);
       } else if (currentTool === 'eraser') {
@@ -555,29 +585,67 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
         if (annotation) {
           deleteAnnotation(annotation.id);
         }
+      } else if (currentTool === 'select') {
+        // Deselect when clicking on empty area (not on an annotation)
+        // Check if click target is not an annotation element
+        const target = e.target as HTMLElement;
+        if (!target.closest('.annotation-element')) {
+          setSelectedAnnotationId(null);
+        }
       }
     },
-    [currentTool, getCoordinates, pageNumber, deleteAnnotation, state.annotations, isPointInAnnotation, draggingAnnotation, screenToPageCoords]
+    [currentTool, getCoordinates, pageNumber, deleteAnnotation, state.annotations, isPointInAnnotation, draggingAnnotation, screenToPageCoords, textInputPosition]
   );
 
   // Handle text input submission
   const handleTextSubmit = useCallback(() => {
     if (textInputValue.trim() && textInputPosition) {
-      // Convert screen coordinates to page coordinates for storage
-      const pageCoords = screenToPageCoords(textInputPosition.x, textInputPosition.y);
-      addAnnotation({
-        type: 'text',
-        pageNumber,
-        x: pageCoords.x,
-        y: pageCoords.y,
-        content: textInputValue.trim(),
-        color: '#000000',
-        fontSize: 16,
-      });
+      // The container is positioned with drag handle at top (16px)
+      // The actual text position is 16px below the container position
+      const dragHandleHeight = 16;
+      const textScreenY = textInputPosition.y + dragHandleHeight;
+      // Convert screen position to page coordinates
+      const pageCoords = screenToPageCoords(textInputPosition.x, textScreenY);
+
+      if (editingAnnotationId) {
+        // Update existing annotation including position (in case it was moved)
+        updateAnnotation(editingAnnotationId, {
+          x: pageCoords.x,
+          y: pageCoords.y,
+          content: textInputValue.trim(),
+          width: textInputSize.width,
+          height: textInputSize.height,
+          fontSize: textInputFontSize,
+          fontFamily: textInputFontFamily,
+          color: textInputColor,
+          backgroundColor: textInputBgColor,
+          backgroundOpacity: textInputBgOpacity,
+        });
+      } else {
+        // Create new annotation
+        addAnnotation({
+          type: 'text',
+          pageNumber,
+          x: pageCoords.x,
+          y: pageCoords.y,
+          width: textInputSize.width,
+          height: textInputSize.height,
+          content: textInputValue.trim(),
+          color: textInputColor,
+          fontSize: textInputFontSize,
+          fontFamily: textInputFontFamily,
+          backgroundColor: textInputBgColor,
+          backgroundOpacity: textInputBgOpacity,
+        });
+      }
+    } else if (editingAnnotationId && !textInputValue.trim()) {
+      // If editing and text is empty, delete the annotation
+      deleteAnnotation(editingAnnotationId);
     }
     setTextInputPosition(null);
     setTextInputValue('');
-  }, [textInputValue, textInputPosition, pageNumber, addAnnotation, screenToPageCoords]);
+    setEditingAnnotationId(null);
+  }, [textInputValue, textInputPosition, textInputSize, textInputFontSize, textInputFontFamily, textInputColor, textInputBgColor, textInputBgOpacity, pageNumber, addAnnotation, updateAnnotation, deleteAnnotation, editingAnnotationId, screenToPageCoords]);
 
   // Handle text input key events
   const handleTextKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -587,14 +655,195 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     } else if (e.key === 'Escape') {
       setTextInputPosition(null);
       setTextInputValue('');
+      setEditingAnnotationId(null);
     }
   }, [handleTextSubmit]);
+
+  // Handle double-click on text annotation to edit
+  const handleTextDoubleClick = useCallback((e: React.MouseEvent, annotation: Annotation) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Get screen position of the annotation
+    const screenPos = pageToScreenCoords(annotation.x, annotation.y);
+
+    // The text input container has a 16px drag handle at top, so offset position
+    // upward so the text area aligns with where the annotation was displayed
+    const dragHandleHeight = 16;
+    setTextInputPosition({ x: screenPos.x, y: screenPos.y - dragHandleHeight });
+    setTextInputValue(annotation.content || '');
+    setTextInputSize({
+      width: annotation.width || 150,
+      height: annotation.height || 40,
+    });
+    setTextInputFontSize(annotation.fontSize || 16);
+    setTextInputFontFamily(annotation.fontFamily || 'Inter, sans-serif');
+    setTextInputColor(annotation.color || '#000000');
+    setTextInputBgColor(annotation.backgroundColor);
+    setTextInputBgOpacity(annotation.backgroundOpacity ?? 100);
+    setEditingAnnotationId(annotation.id);
+    setSelectedAnnotationId(null);
+
+    // Focus the input after it renders
+    setTimeout(() => textInputRef.current?.focus(), 0);
+  }, [pageToScreenCoords]);
+
+  // Handle font/style change while typing
+  const handleTextInputFontChange = useCallback((property: 'fontSize' | 'fontFamily' | 'color' | 'backgroundColor' | 'backgroundOpacity', value: string | number | undefined) => {
+    if (property === 'fontSize') {
+      setTextInputFontSize(value as number);
+    } else if (property === 'fontFamily') {
+      setTextInputFontFamily(value as string);
+    } else if (property === 'color') {
+      setTextInputColor(value as string);
+    } else if (property === 'backgroundColor') {
+      setTextInputBgColor(value as string | undefined);
+    } else if (property === 'backgroundOpacity') {
+      setTextInputBgOpacity(value as number);
+    }
+  }, []);
+
+  // Handle text input resize
+  const handleTextInputResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setTextInputResizing(handle);
+  }, []);
+
+  const handleTextInputResizeMove = useCallback((e: React.MouseEvent) => {
+    if (!textInputResizing || !textInputPosition) return;
+
+    const coords = getCoordinates(e);
+
+    let newX = textInputPosition.x;
+    let newY = textInputPosition.y;
+    let newWidth = textInputSize.width;
+    let newHeight = textInputSize.height;
+
+    // Handle east (right) edge
+    if (textInputResizing.includes('e')) {
+      newWidth = Math.max(80, coords.x - textInputPosition.x);
+    }
+    // Handle west (left) edge
+    if (textInputResizing.includes('w')) {
+      const right = textInputPosition.x + textInputSize.width;
+      newX = Math.min(coords.x, right - 80);
+      newWidth = right - newX;
+    }
+    // Handle south (bottom) edge
+    if (textInputResizing.includes('s')) {
+      newHeight = Math.max(24, coords.y - textInputPosition.y);
+    }
+    // Handle north (top) edge
+    if (textInputResizing.includes('n')) {
+      const bottom = textInputPosition.y + textInputSize.height;
+      newY = Math.min(coords.y, bottom - 24);
+      newHeight = bottom - newY;
+    }
+
+    setTextInputPosition({ x: newX, y: newY });
+    setTextInputSize({ width: newWidth, height: newHeight });
+  }, [textInputResizing, textInputPosition, textInputSize, getCoordinates]);
+
+  // Handle text input dragging (moving the box)
+  const [textInputDragging, setTextInputDragging] = useState(false);
+  const [textInputDragOffset, setTextInputDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleTextInputResizeEnd = useCallback(() => {
+    setTextInputResizing(null);
+    setTextInputDragging(false);
+  }, []);
+
+  // Use document-level event listeners for text input resize/drag to capture mouse outside container
+  useEffect(() => {
+    if (!textInputResizing && !textInputDragging) return;
+
+    const handleDocumentMouseMove = (e: MouseEvent) => {
+      const coords = getCoordinates(e);
+
+      if (textInputResizing && textInputPosition) {
+        let newX = textInputPosition.x;
+        let newY = textInputPosition.y;
+        let newWidth = textInputSize.width;
+        let newHeight = textInputSize.height;
+
+        if (textInputResizing.includes('e')) {
+          newWidth = Math.max(80, coords.x - textInputPosition.x);
+        }
+        if (textInputResizing.includes('w')) {
+          const right = textInputPosition.x + textInputSize.width;
+          newX = Math.min(coords.x, right - 80);
+          newWidth = right - newX;
+        }
+        if (textInputResizing.includes('s')) {
+          newHeight = Math.max(24, coords.y - textInputPosition.y);
+        }
+        if (textInputResizing.includes('n')) {
+          const bottom = textInputPosition.y + textInputSize.height;
+          newY = Math.min(coords.y, bottom - 24);
+          newHeight = bottom - newY;
+        }
+
+        setTextInputPosition({ x: newX, y: newY });
+        setTextInputSize({ width: newWidth, height: newHeight });
+      }
+
+      if (textInputDragging && textInputPosition) {
+        setTextInputPosition({
+          x: coords.x - textInputDragOffset.x,
+          y: coords.y - textInputDragOffset.y,
+        });
+      }
+    };
+
+    const handleDocumentMouseUp = () => {
+      setTextInputResizing(null);
+      setTextInputDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    document.addEventListener('mouseup', handleDocumentMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleDocumentMouseMove);
+      document.removeEventListener('mouseup', handleDocumentMouseUp);
+    };
+  }, [textInputResizing, textInputDragging, textInputPosition, textInputSize, textInputDragOffset, getCoordinates]);
+
+  const handleTextInputDragStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const coords = getCoordinates(e);
+    if (textInputPosition) {
+      setTextInputDragging(true);
+      setTextInputDragOffset({
+        x: coords.x - textInputPosition.x,
+        y: coords.y - textInputPosition.y,
+      });
+    }
+  }, [getCoordinates, textInputPosition]);
+
+  const handleTextInputDragMove = useCallback((e: React.MouseEvent) => {
+    if (!textInputDragging) return;
+
+    const coords = getCoordinates(e);
+    setTextInputPosition({
+      x: coords.x - textInputDragOffset.x,
+      y: coords.y - textInputDragOffset.y,
+    });
+  }, [textInputDragging, textInputDragOffset, getCoordinates]);
+
+  // No click-outside handler - user must click the confirm button to close
 
   // Handle annotation drag start
   const handleAnnotationMouseDown = useCallback((e: React.MouseEvent, annotationId: string, annotation: Annotation) => {
     if (currentTool !== 'select') return;
     e.stopPropagation();
     e.preventDefault();
+
+    // Select the annotation
+    setSelectedAnnotationId(annotationId);
 
     const screenCoords = getCoordinates(e);
     // Calculate the page center
@@ -609,6 +858,71 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
       y: screenCoords.y - screenCenter.y,
     });
   }, [currentTool, getCoordinates, pageToScreenCoords]);
+
+  // Handle resize start
+  const handleResizeStart = useCallback((e: React.MouseEvent, annotationId: string, handle: string, annotation: Annotation) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizing({ annotationId, handle });
+    setResizeStart({
+      x: annotation.x,
+      y: annotation.y,
+      width: annotation.width || 100,
+      height: annotation.height || 30,
+    });
+  }, []);
+
+  // Handle resize drag
+  const handleResizeDrag = useCallback((e: React.MouseEvent) => {
+    if (!resizing || !resizeStart) return;
+
+    const coords = getCoordinates(e);
+    const pageCoords = screenToPageCoords(coords.x, coords.y);
+    const annotation = state.annotations.find(a => a.id === resizing.annotationId);
+    if (!annotation) return;
+
+    let newX = resizeStart.x;
+    let newY = resizeStart.y;
+    let newWidth = resizeStart.width;
+    let newHeight = resizeStart.height;
+
+    // Handle different resize handles
+    if (resizing.handle.includes('e')) {
+      newWidth = Math.max(50, pageCoords.x - annotation.x);
+    }
+    if (resizing.handle.includes('w')) {
+      const newRight = annotation.x + (annotation.width || 100);
+      newX = Math.min(pageCoords.x, newRight - 50);
+      newWidth = newRight - newX;
+    }
+    if (resizing.handle.includes('s')) {
+      newHeight = Math.max(20, pageCoords.y - annotation.y);
+    }
+    if (resizing.handle.includes('n')) {
+      const newBottom = annotation.y + (annotation.height || 30);
+      newY = Math.min(pageCoords.y, newBottom - 20);
+      newHeight = newBottom - newY;
+    }
+
+    updateAnnotation(resizing.annotationId, {
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight,
+    });
+  }, [resizing, resizeStart, getCoordinates, screenToPageCoords, state.annotations, updateAnnotation]);
+
+  // Handle resize end
+  const handleResizeEnd = useCallback(() => {
+    setResizing(null);
+    setResizeStart(null);
+  }, []);
+
+  // Handle font change for selected text annotation
+  const handleFontChange = useCallback((property: 'fontSize' | 'fontFamily' | 'color' | 'backgroundColor' | 'backgroundOpacity', value: string | number | undefined) => {
+    if (!selectedAnnotationId) return;
+    updateAnnotation(selectedAnnotationId, { [property]: value });
+  }, [selectedAnnotationId, updateAnnotation]);
 
   // Handle annotation drag
   const handleAnnotationDrag = useCallback((e: React.MouseEvent) => {
@@ -638,17 +952,34 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   // Handle annotation drag end
   const handleAnnotationMouseUp = useCallback(() => {
     setDraggingAnnotation(null);
-  }, []);
+    handleResizeEnd();
+  }, [handleResizeEnd]);
 
-  // Filter annotations for this page
-  const pageAnnotations = state.annotations.filter((a) => a.pageNumber === pageNumber);
+  // Combined mouse move handler for drag and resize
+  const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
+    if (resizing) {
+      handleResizeDrag(e);
+    } else {
+      handleAnnotationDrag(e);
+    }
+  }, [resizing, handleResizeDrag, handleAnnotationDrag]);
+
+  // Filter annotations for this page, excluding the one being edited (to avoid showing duplicate)
+  const pageAnnotations = state.annotations.filter(
+    (a) => a.pageNumber === pageNumber && a.id !== editingAnnotationId
+  );
+
+  // Get selected annotation for font toolbar
+  const selectedAnnotation = selectedAnnotationId
+    ? state.annotations.find(a => a.id === selectedAnnotationId)
+    : null;
 
   // Check if we should show text layer (for text selection)
   const showTextLayer = currentTool === 'select' || currentTool === 'pan';
 
   return (
     <div
-      className={`page-canvas-container ${draggingAnnotation ? 'dragging-annotation' : ''}`}
+      className={`page-canvas-container ${draggingAnnotation ? 'dragging-annotation' : ''} ${resizing ? 'resizing-annotation' : ''}`}
       style={{
         width: dimensions.width,
         height: dimensions.height,
@@ -656,7 +987,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
         touchAction: isDrawingTool ? 'none' : 'auto',
       }}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleAnnotationDrag}
+      onMouseMove={handleContainerMouseMove}
       onMouseUp={handleAnnotationMouseUp}
       onMouseLeave={handleAnnotationMouseUp}
       onClick={handleClick}
@@ -689,7 +1020,10 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
             annotation={annotation}
             scale={scale}
             onMouseDown={(e) => handleAnnotationMouseDown(e, annotation.id, annotation)}
+            onDoubleClick={annotation.type === 'text' ? (e) => handleTextDoubleClick(e, annotation) : undefined}
             isDraggable={currentTool === 'select'}
+            isSelected={selectedAnnotationId === annotation.id}
+            onResizeStart={(e, handle) => handleResizeStart(e, annotation.id, handle, annotation)}
             pageToScreenCoords={pageToScreenCoords}
             totalRotation={totalRotation}
           />
@@ -702,21 +1036,145 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           />
         )}
       </div>
-      {/* Inline text input */}
+      {/* Inline text input with resize handles */}
       {textInputPosition && (
-        <textarea
-          ref={textInputRef}
-          className="inline-text-input"
-          style={{
-            left: textInputPosition.x * scale,
-            top: textInputPosition.y * scale,
-            fontSize: 16 * scale,
-          }}
-          value={textInputValue}
-          onChange={(e) => setTextInputValue(e.target.value)}
-          onKeyDown={handleTextKeyDown}
-          onBlur={handleTextSubmit}
-          placeholder="Type here..."
+        <>
+          <div
+            ref={textInputContainerRef}
+            className={`text-input-container ${textInputDragging ? 'dragging' : ''} ${textInputResizing ? 'resizing' : ''}`}
+            style={{
+              position: 'absolute',
+              left: textInputPosition.x * scale,
+              top: textInputPosition.y * scale,
+              width: textInputSize.width * scale,
+              height: (textInputSize.height + 16) * scale,
+            }}
+            onMouseMove={(e) => {
+              handleTextInputResizeMove(e);
+              handleTextInputDragMove(e);
+            }}
+            onMouseUp={handleTextInputResizeEnd}
+          >
+            {/* Drag handle header */}
+            <div
+              className="text-input-drag-handle"
+              onMouseDown={handleTextInputDragStart}
+            />
+            <textarea
+              ref={textInputRef}
+              className="inline-text-input"
+              style={{
+                width: '100%',
+                height: `calc(100% - 16px)`,
+                fontSize: textInputFontSize * scale,
+                fontFamily: textInputFontFamily,
+                color: textInputColor,
+                backgroundColor: textInputBgColor
+                  ? `rgba(${parseInt(textInputBgColor.slice(1, 3), 16)}, ${parseInt(textInputBgColor.slice(3, 5), 16)}, ${parseInt(textInputBgColor.slice(5, 7), 16)}, ${textInputBgOpacity / 100})`
+                  : 'transparent',
+              }}
+              value={textInputValue}
+              onChange={(e) => setTextInputValue(e.target.value)}
+              onKeyDown={handleTextKeyDown}
+              placeholder="Type here..."
+            />
+            {/* All 8 resize handles */}
+            {['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'].map((handle) => (
+              <div
+                key={handle}
+                className={`text-input-resize-handle ${handle}`}
+                onMouseDown={(e) => handleTextInputResizeStart(e, handle)}
+              />
+            ))}
+            {/* Confirm button */}
+            <button
+              className="text-input-confirm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTextSubmit();
+              }}
+              title="Confirm (Enter)"
+            >
+              ✓
+            </button>
+          </div>
+          {/* Font toolbar for text input */}
+          <div
+            className="text-format-toolbar"
+            style={{
+              position: 'absolute',
+              left: textInputPosition.x * scale,
+              top: (textInputPosition.y - 45) * scale,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <select
+              value={textInputFontFamily}
+              onChange={(e) => handleTextInputFontChange('fontFamily', e.target.value)}
+              className="font-select"
+            >
+              <option value="Inter, sans-serif">Inter</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Times New Roman, serif">Times</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="Courier New, monospace">Courier</option>
+              <option value="Comic Sans MS, cursive">Comic Sans</option>
+            </select>
+            <select
+              value={textInputFontSize}
+              onChange={(e) => handleTextInputFontChange('fontSize', parseInt(e.target.value, 10))}
+              className="size-select"
+            >
+              {[12, 14, 16, 18, 20, 24, 28, 32, 36, 48].map((size) => (
+                <option key={size} value={size}>{size}px</option>
+              ))}
+            </select>
+            <input
+              type="color"
+              value={textInputColor}
+              onChange={(e) => handleTextInputFontChange('color', e.target.value)}
+              className="color-input"
+              title="Text color"
+            />
+            <span className="toolbar-divider" />
+            <label className="bg-toggle" title="Background color">
+              <input
+                type="checkbox"
+                checked={textInputBgColor !== undefined}
+                onChange={(e) => handleTextInputFontChange('backgroundColor', e.target.checked ? '#ffff00' : undefined)}
+              />
+              <span className="bg-icon">BG</span>
+            </label>
+            {textInputBgColor !== undefined && (
+              <>
+                <input
+                  type="color"
+                  value={textInputBgColor}
+                  onChange={(e) => handleTextInputFontChange('backgroundColor', e.target.value)}
+                  className="color-input"
+                  title="Background color"
+                />
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={textInputBgOpacity}
+                  onChange={(e) => handleTextInputFontChange('backgroundOpacity', parseInt(e.target.value, 10))}
+                  className="opacity-slider"
+                  title={`Opacity: ${textInputBgOpacity}%`}
+                />
+              </>
+            )}
+          </div>
+        </>
+      )}
+      {/* Font toolbar for selected text annotation */}
+      {selectedAnnotation && selectedAnnotation.type === 'text' && !textInputPosition && (
+        <TextFormatToolbar
+          annotation={selectedAnnotation}
+          scale={scale}
+          pageToScreenCoords={pageToScreenCoords}
+          onFontChange={handleFontChange}
         />
       )}
     </div>
@@ -727,17 +1185,173 @@ interface AnnotationRendererProps {
   annotation: Annotation;
   scale: number;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   isDraggable?: boolean;
+  isSelected?: boolean;
+  onResizeStart?: (e: React.MouseEvent, handle: string) => void;
   pageToScreenCoords?: (pageX: number, pageY: number) => { x: number; y: number };
   totalRotation?: number;
   isCurrentDrawing?: boolean; // For live drawing preview, don't transform
+}
+
+// Resize handles component
+function ResizeHandles({
+  onResizeStart,
+}: {
+  scale: number;
+  onResizeStart: (e: React.MouseEvent, handle: string) => void;
+}) {
+  const handles = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
+  const handleSize = 8;
+
+  return (
+    <>
+      {handles.map((handle) => {
+        const style: React.CSSProperties = {
+          position: 'absolute',
+          width: handleSize,
+          height: handleSize,
+          background: 'var(--accent-color, #02B7FF)',
+          border: '1px solid white',
+          borderRadius: 2,
+          cursor: `${handle}-resize`,
+        };
+
+        // Position handles
+        if (handle.includes('n')) style.top = -handleSize / 2;
+        if (handle.includes('s')) style.bottom = -handleSize / 2;
+        if (handle.includes('w')) style.left = -handleSize / 2;
+        if (handle.includes('e')) style.right = -handleSize / 2;
+        if (handle === 'n' || handle === 's') {
+          style.left = '50%';
+          style.transform = 'translateX(-50%)';
+        }
+        if (handle === 'w' || handle === 'e') {
+          style.top = '50%';
+          style.transform = 'translateY(-50%)';
+        }
+
+        return (
+          <div
+            key={handle}
+            style={style}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onResizeStart(e, handle);
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// Text format toolbar component
+interface TextFormatToolbarProps {
+  annotation: Annotation;
+  scale: number;
+  pageToScreenCoords?: (pageX: number, pageY: number) => { x: number; y: number };
+  onFontChange: (property: 'fontSize' | 'fontFamily' | 'color' | 'backgroundColor' | 'backgroundOpacity', value: string | number | undefined) => void;
+}
+
+function TextFormatToolbar({ annotation, scale, pageToScreenCoords, onFontChange }: TextFormatToolbarProps) {
+  const screenPos = pageToScreenCoords
+    ? pageToScreenCoords(annotation.x, annotation.y)
+    : { x: annotation.x, y: annotation.y };
+
+  const fonts = [
+    { value: 'Inter, sans-serif', label: 'Inter' },
+    { value: 'Arial, sans-serif', label: 'Arial' },
+    { value: 'Times New Roman, serif', label: 'Times' },
+    { value: 'Georgia, serif', label: 'Georgia' },
+    { value: 'Courier New, monospace', label: 'Courier' },
+    { value: 'Comic Sans MS, cursive', label: 'Comic Sans' },
+  ];
+
+  const sizes = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+
+  return (
+    <div
+      className="text-format-toolbar"
+      style={{
+        position: 'absolute',
+        left: screenPos.x * scale,
+        top: (screenPos.y - 40) * scale,
+        transform: 'translateY(-100%)',
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <select
+        value={annotation.fontFamily || 'Inter, sans-serif'}
+        onChange={(e) => onFontChange('fontFamily', e.target.value)}
+        className="font-select"
+      >
+        {fonts.map((font) => (
+          <option key={font.value} value={font.value}>
+            {font.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={annotation.fontSize || 16}
+        onChange={(e) => onFontChange('fontSize', parseInt(e.target.value, 10))}
+        className="size-select"
+      >
+        {sizes.map((size) => (
+          <option key={size} value={size}>
+            {size}px
+          </option>
+        ))}
+      </select>
+      <input
+        type="color"
+        value={annotation.color || '#000000'}
+        onChange={(e) => onFontChange('color', e.target.value)}
+        className="color-input"
+        title="Text color"
+      />
+      <span className="toolbar-divider" />
+      <label className="bg-toggle" title="Background color">
+        <input
+          type="checkbox"
+          checked={annotation.backgroundColor !== undefined}
+          onChange={(e) => onFontChange('backgroundColor', e.target.checked ? '#ffff00' : undefined)}
+        />
+        <span className="bg-icon">BG</span>
+      </label>
+      {annotation.backgroundColor !== undefined && (
+        <>
+          <input
+            type="color"
+            value={annotation.backgroundColor}
+            onChange={(e) => onFontChange('backgroundColor', e.target.value)}
+            className="color-input"
+            title="Background color"
+          />
+          <input
+            type="range"
+            min="10"
+            max="100"
+            value={annotation.backgroundOpacity ?? 100}
+            onChange={(e) => onFontChange('backgroundOpacity', parseInt(e.target.value, 10))}
+            className="opacity-slider"
+            title={`Opacity: ${annotation.backgroundOpacity ?? 100}%`}
+          />
+        </>
+      )}
+    </div>
+  );
 }
 
 function AnnotationRenderer({
   annotation,
   scale,
   onMouseDown,
+  onDoubleClick,
   isDraggable,
+  isSelected,
+  onResizeStart,
   pageToScreenCoords,
   totalRotation = 0,
   isCurrentDrawing,
@@ -807,23 +1421,50 @@ function AnnotationRenderer({
         />
       );
     }
-    case 'text':
+    case 'text': {
+      const textWidth = annotation.width || 'auto';
+      // Calculate background color with opacity
+      let bgColor: string | undefined;
+      if (annotation.backgroundColor) {
+        const opacity = (annotation.backgroundOpacity ?? 100) / 100;
+        // Convert hex to rgba
+        const hex = annotation.backgroundColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        bgColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      }
       return (
         <div
+          className={`annotation-element ${isSelected ? 'selected' : ''}`}
           style={{
             ...style,
             color: annotation.color || '#000',
             fontSize: (annotation.fontSize || 16) * scale,
+            fontFamily: annotation.fontFamily || 'Inter, sans-serif',
             whiteSpace: 'pre-wrap',
             pointerEvents: isDraggable ? 'auto' : 'none',
             cursor: isDraggable ? 'move' : 'default',
             userSelect: 'none',
+            width: textWidth !== 'auto' ? textWidth * scale : undefined,
+            minWidth: 50 * scale,
+            outline: isSelected ? '2px solid var(--accent-color, #02B7FF)' : 'none',
+            outlineOffset: 2,
+            position: 'absolute',
+            backgroundColor: bgColor,
+            padding: bgColor ? '2px 4px' : undefined,
+            borderRadius: bgColor ? '2px' : undefined,
           }}
           onMouseDown={onMouseDown}
+          onDoubleClick={onDoubleClick}
         >
           {annotation.content}
+          {isSelected && onResizeStart && (
+            <ResizeHandles scale={scale} onResizeStart={onResizeStart} />
+          )}
         </div>
       );
+    }
     case 'rectangle': {
       const box = getScreenBoundingBox(annotation.x, annotation.y, annotation.width || 0, annotation.height || 0);
       return (

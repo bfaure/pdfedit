@@ -19,9 +19,11 @@ interface PDFContextValue {
   history: HistoryEntry[];
   historyIndex: number;
   searchHighlight: SearchHighlight | null;
+  isProgrammaticNavigation: boolean;
   // Actions
   loadFile: (file: File) => Promise<void>;
   setCurrentPage: (page: number) => void;
+  navigateToPage: (page: number) => void; // For programmatic navigation (thumbnails, toolbar)
   setScale: (scale: number) => void;
   setRotation: (rotation: number) => void;
   rotatePage: (pageNumber: number, rotation: number) => void;
@@ -178,6 +180,9 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
   // Fit to page request counter (incremented to trigger fit)
   const [fitToPageRequest, setFitToPageRequest] = useState(0);
 
+  // Flag to indicate programmatic navigation (to prevent scroll detection interference)
+  const [isProgrammaticNavigation, setIsProgrammaticNavigation] = useState(false);
+
   // Helper to create history entry
   const createHistoryEntry = useCallback((
     type: HistoryActionType,
@@ -237,6 +242,17 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrentPage = useCallback((page: number) => {
     dispatch({ type: 'SET_CURRENT_PAGE', payload: page });
+  }, []);
+
+  // Navigate to page with programmatic flag set (for thumbnails, toolbar, etc.)
+  // This prevents scroll detection from interfering during the navigation
+  const navigateToPage = useCallback((page: number) => {
+    setIsProgrammaticNavigation(true);
+    dispatch({ type: 'SET_CURRENT_PAGE', payload: page });
+    // Clear flag after a delay to allow scroll animation to complete
+    setTimeout(() => {
+      setIsProgrammaticNavigation(false);
+    }, 800);
   }, []);
 
   const setScale = useCallback((scale: number) => {
@@ -407,8 +423,10 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     canRedo,
     history,
     historyIndex,
+    isProgrammaticNavigation,
     loadFile,
     setCurrentPage,
+    navigateToPage,
     setScale,
     setRotation,
     rotatePage,

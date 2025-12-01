@@ -25,7 +25,7 @@ const getThumbnailSize = (sidebarWidth: number) => {
 };
 
 export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
-  const { state, pdfDocument, setCurrentPage, rotatePage, deletePage, restorePage, reorderPages } = usePDF();
+  const { state, pdfDocument, navigateToPage, rotatePage, deletePage, restorePage, reorderPages } = usePDF();
   const [thumbnails, setThumbnails] = useState<ThumbnailCache>({});
   const [loadingPages, setLoadingPages] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageNumber: number } | null>(null);
@@ -164,10 +164,10 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
     } else {
       // Regular click - clear selection and navigate
       setSelectedPages(new Set());
-      setCurrentPage(pageNumber);
+      navigateToPage(pageNumber);
       setLastClickedPage(pageNumber);
     }
-  }, [state.deletedPages, state.pageOrder, state.numPages, lastClickedPage, setCurrentPage]);
+  }, [state.deletedPages, state.pageOrder, state.numPages, lastClickedPage, navigateToPage]);
 
   // Handle extract selected pages
   const handleExtractSelected = useCallback(() => {
