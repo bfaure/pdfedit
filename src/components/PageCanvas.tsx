@@ -188,6 +188,24 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     [scale]
   );
 
+  // Get coordinates from touch events
+  const getTouchCoordinates = useCallback(
+    (e: React.TouchEvent | TouchEvent): { x: number; y: number } => {
+      const canvas = canvasRef.current;
+      if (!canvas || !e.touches[0]) return { x: 0, y: 0 };
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      return {
+        x: (touch.clientX - rect.left) / scale,
+        y: (touch.clientY - rect.top) / scale,
+      };
+    },
+    [scale]
+  );
+
+  // Check if current tool is a drawing tool (needs touch handling)
+  const isDrawingTool = currentTool !== 'select' && currentTool !== 'pan';
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (currentTool === 'select' || currentTool === 'pan') return;
@@ -370,6 +388,103 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     };
   }, [isDrawing, drawStart, currentTool, pageNumber, getCoordinates, updateCurrentDrawing, handleMouseUp]);
 
+  // Touch event handlers for mobile drawing
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (currentTool === 'select' || currentTool === 'pan') return;
+
+      // Prevent default to stop scrolling when drawing
+      e.preventDefault();
+
+      const coords = getTouchCoordinates(e);
+      setIsDrawing(true);
+      setDrawStart(coords);
+
+      // Initialize currentDrawing for all tools
+      if (currentTool === 'draw') {
+        drawingPointsRef.current = [coords];
+        updateCurrentDrawing({
+          type: 'drawing',
+          pageNumber,
+          x: 0,
+          y: 0,
+          points: [coords],
+          color: '#ff0000',
+        });
+      } else if (currentTool === 'arrow') {
+        updateCurrentDrawing({
+          type: 'arrow',
+          pageNumber,
+          x: coords.x,
+          y: coords.y,
+          points: [coords, coords],
+          color: '#ff0000',
+        });
+      } else if (currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle') {
+        updateCurrentDrawing({
+          type: currentTool,
+          pageNumber,
+          x: coords.x,
+          y: coords.y,
+          width: 0,
+          height: 0,
+          color: currentTool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+        });
+      }
+    },
+    [currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDrawing || !drawStart) return;
+      if (currentTool === 'select' || currentTool === 'pan') return;
+
+      // Prevent default to stop scrolling
+      e.preventDefault();
+
+      const coords = getTouchCoordinates(e);
+
+      if (currentTool === 'draw') {
+        drawingPointsRef.current.push(coords);
+        updateCurrentDrawing({
+          type: 'drawing',
+          pageNumber,
+          x: 0,
+          y: 0,
+          points: [...drawingPointsRef.current],
+          color: '#ff0000',
+        });
+      } else if (currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle') {
+        const width = coords.x - drawStart.x;
+        const height = coords.y - drawStart.y;
+        updateCurrentDrawing({
+          type: currentTool,
+          pageNumber,
+          x: width >= 0 ? drawStart.x : coords.x,
+          y: height >= 0 ? drawStart.y : coords.y,
+          width: Math.abs(width),
+          height: Math.abs(height),
+          color: currentTool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+        });
+      } else if (currentTool === 'arrow') {
+        updateCurrentDrawing({
+          type: 'arrow',
+          pageNumber,
+          x: drawStart.x,
+          y: drawStart.y,
+          points: [drawStart, coords],
+          color: '#ff0000',
+        });
+      }
+    },
+    [isDrawing, drawStart, currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    handleMouseUp(); // Reuse the same logic as mouse up
+  }, [handleMouseUp]);
+
   // Helper to check if a point is near a drawing path
   const isPointNearDrawing = useCallback((point: { x: number; y: number }, annotation: Annotation, threshold: number = 10): boolean => {
     if (!annotation.points || annotation.points.length < 2) return false;
@@ -534,12 +649,20 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   return (
     <div
       className={`page-canvas-container ${draggingAnnotation ? 'dragging-annotation' : ''}`}
-      style={{ width: dimensions.width, height: dimensions.height }}
+      style={{
+        width: dimensions.width,
+        height: dimensions.height,
+        // Disable touch scrolling when a drawing tool is active
+        touchAction: isDrawingTool ? 'none' : 'auto',
+      }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleAnnotationDrag}
       onMouseUp={handleAnnotationMouseUp}
       onMouseLeave={handleAnnotationMouseUp}
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <canvas
         ref={canvasRef}

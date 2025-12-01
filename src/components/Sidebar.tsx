@@ -39,6 +39,10 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragNodeRef = useRef<HTMLDivElement | null>(null);
 
+  // Long-press state for mobile context menu
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressPageRef = useRef<{ pageNumber: number; x: number; y: number } | null>(null);
+
   // Resize state
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -229,6 +233,61 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
     handleDragEnd();
   }, [draggedIndex, reorderPages, handleDragEnd]);
 
+  // Long-press handlers for mobile context menu
+  const handleTouchStart = useCallback((e: React.TouchEvent, pageNumber: number) => {
+    const touch = e.touches[0];
+    longPressPageRef.current = { pageNumber, x: touch.clientX, y: touch.clientY };
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      if (longPressPageRef.current) {
+        setContextMenu({
+          x: longPressPageRef.current.x,
+          y: longPressPageRef.current.y,
+          pageNumber: longPressPageRef.current.pageNumber,
+        });
+      }
+    }, 500); // 500ms long-press
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressPageRef.current = null;
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    // Cancel long-press if finger moves
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Move page up/down handlers for mobile
+  const handleMovePageUp = useCallback((pageNumber: number) => {
+    const pageOrder = state.pageOrder.length > 0
+      ? state.pageOrder
+      : Array.from({ length: state.numPages }, (_, i) => i + 1);
+    const currentIndex = pageOrder.indexOf(pageNumber);
+    if (currentIndex > 0) {
+      reorderPages(currentIndex, currentIndex - 1);
+    }
+    closeContextMenu();
+  }, [state.pageOrder, state.numPages, reorderPages, closeContextMenu]);
+
+  const handleMovePageDown = useCallback((pageNumber: number) => {
+    const pageOrder = state.pageOrder.length > 0
+      ? state.pageOrder
+      : Array.from({ length: state.numPages }, (_, i) => i + 1);
+    const currentIndex = pageOrder.indexOf(pageNumber);
+    if (currentIndex < pageOrder.length - 1) {
+      reorderPages(currentIndex, currentIndex + 1);
+    }
+    closeContextMenu();
+  }, [state.pageOrder, state.numPages, reorderPages, closeContextMenu]);
+
   // Resize handlers
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -337,6 +396,9 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
+              onTouchStart={(e) => handleTouchStart(e, pageNumber)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
             >
               <div className={`thumbnail-wrapper ${isLandscape ? 'landscape' : ''}`}>
                 {loadingPages.has(cacheKey) ? (
@@ -405,6 +467,19 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
             }}
           >
             Rotate Counter-clockwise
+          </button>
+          <div className="context-menu-divider" />
+          <button
+            onClick={() => handleMovePageUp(contextMenu.pageNumber)}
+            disabled={pageOrder.indexOf(contextMenu.pageNumber) === 0}
+          >
+            Move Up
+          </button>
+          <button
+            onClick={() => handleMovePageDown(contextMenu.pageNumber)}
+            disabled={pageOrder.indexOf(contextMenu.pageNumber) === pageOrder.length - 1}
+          >
+            Move Down
           </button>
           <div className="context-menu-divider" />
           {state.deletedPages.has(contextMenu.pageNumber) ? (

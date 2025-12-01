@@ -2,15 +2,13 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import { usePDF } from '../contexts/PDFContext';
 import { PageCanvas } from './PageCanvas';
-import { WelcomeScreen } from './WelcomeScreen';
 import './PDFViewer.css';
 
 interface PDFViewerProps {
-  onShowPrivacy?: () => void;
-  onShowTerms?: () => void;
+  isPrinting?: boolean;
 }
 
-export function PDFViewer({ onShowPrivacy, onShowTerms }: PDFViewerProps) {
+export function PDFViewer({ isPrinting }: PDFViewerProps) {
   const { state, settings, pdfDocument, setCurrentPage, setScale, currentTool, fitToPageRequest } = usePDF();
   const [pages, setPages] = useState<Map<number, PDFPageProxy>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -19,6 +17,7 @@ export function PDFViewer({ onShowPrivacy, onShowTerms }: PDFViewerProps) {
   const isScrollingToPage = useRef(false);
   const scrollTimeoutRef = useRef<number | null>(null);
   const isInitialMount = useRef(true);
+  const currentPageRef = useRef(state.currentPage);
 
   // Pan tool state
   const [isPanning, setIsPanning] = useState(false);
@@ -136,17 +135,27 @@ export function PDFViewer({ onShowPrivacy, onShowTerms }: PDFViewerProps) {
     };
   }, [state.currentPage, settings.continuousScroll]);
 
-  // Track visible pages in continuous scroll mode
+  // Keep currentPageRef in sync
+  useEffect(() => {
+    currentPageRef.current = state.currentPage;
+  }, [state.currentPage]);
+
+  // Track visible pages in continuous scroll mode (or print mode)
   const handleScroll = useCallback(() => {
     // Skip if we're programmatically scrolling to a page (prevents fighting with navigation)
-    if (!settings.continuousScroll || !containerRef.current || isScrollingToPage.current) return;
+    if (!containerRef.current || isScrollingToPage.current) return;
+    // Only track scroll when multiple pages are visible (continuous scroll or print mode)
+    if (!settings.continuousScroll && !isPrinting) return;
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
-    let topMostPage = 1;
+    let topMostPage = currentPageRef.current; // Use ref instead of state
     let topMostOffset = Infinity;
 
     pageRefs.current.forEach((el, pageNumber) => {
+      // Check if element is still in the DOM
+      if (!el.isConnected) return;
+
       const rect = el.getBoundingClientRect();
       const isVisible =
         rect.top < containerRect.bottom && rect.bottom > containerRect.top;
@@ -160,16 +169,86 @@ export function PDFViewer({ onShowPrivacy, onShowTerms }: PDFViewerProps) {
       }
     });
 
-    setCurrentPage(topMostPage);
-  }, [settings.continuousScroll, setCurrentPage]);
+    if (topMostPage !== currentPageRef.current) {
+      setCurrentPage(topMostPage);
+    }
+  }, [settings.continuousScroll, isPrinting, setCurrentPage]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !settings.continuousScroll) return;
+    if (!container) return;
+    // Attach scroll listener when continuous scroll is enabled
+    if (!settings.continuousScroll) return;
 
+    // Use IntersectionObserver for more reliable visibility detection
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isScrollingToPage.current) return;
+
+        // Find the most visible page (highest intersection ratio near top)
+        let bestPage = currentPageRef.current;
+        let bestScore = -Infinity;
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const pageNum = parseInt(entry.target.getAttribute('data-page') || '1', 10);
+            // Score based on intersection ratio and proximity to top
+            const rect = entry.boundingClientRect;
+            const containerRect = container.getBoundingClientRect();
+            const distanceFromTop = Math.abs(rect.top - containerRect.top);
+            // Higher score for more visible and closer to top
+            const score = entry.intersectionRatio * 1000 - distanceFromTop;
+            if (score > bestScore) {
+              bestScore = score;
+              bestPage = pageNum;
+            }
+          }
+        });
+
+        if (bestPage !== currentPageRef.current) {
+          setCurrentPage(bestPage);
+        }
+      },
+      {
+        root: container,
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+        rootMargin: '0px',
+      }
+    );
+
+    // Observe all page wrappers
+    container.querySelectorAll('.page-wrapper').forEach((el) => {
+      observer.observe(el);
+    });
+
+    // Also keep scroll listener as backup
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [handleScroll, settings.continuousScroll]);
+
+    return () => {
+      observer.disconnect();
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll, settings.continuousScroll, setCurrentPage, pages.size]);
+
+  // Clean up stale refs when rendered pages change
+  useEffect(() => {
+    // Compute which pages should be rendered (same logic as pagesToRender)
+    const pageOrder = state.pageOrder.length > 0
+      ? state.pageOrder
+      : Array.from({ length: state.numPages }, (_, i) => i + 1);
+    const currentPageNumbers = new Set(
+      (isPrinting || settings.continuousScroll)
+        ? pageOrder.filter((p) => !state.deletedPages.has(p))
+        : [state.currentPage]
+    );
+
+    // Remove refs for pages no longer rendered
+    pageRefs.current.forEach((_, pageNumber) => {
+      if (!currentPageNumbers.has(pageNumber)) {
+        pageRefs.current.delete(pageNumber);
+      }
+    });
+  }, [isPrinting, settings.continuousScroll, state.pageOrder, state.numPages, state.deletedPages, state.currentPage]);
 
   // Run scroll detection when pages load to ensure initial sync
   useEffect(() => {
@@ -217,19 +296,21 @@ export function PDFViewer({ onShowPrivacy, onShowTerms }: PDFViewerProps) {
   }, []);
 
   if (!pdfDocument || pages.size === 0) {
-    return <WelcomeScreen onShowPrivacy={onShowPrivacy} onShowTerms={onShowTerms} />;
+    // Return null - the App routing handles showing WelcomeScreen or EditorEmptyState
+    return null;
   }
 
   // Get pages to render - use pageOrder for ordering
+  // When printing, render ALL pages regardless of scroll mode
   const pageOrder = state.pageOrder.length > 0 ? state.pageOrder : Array.from({ length: state.numPages }, (_, i) => i + 1);
-  const pagesToRender = settings.continuousScroll
+  const pagesToRender = (isPrinting || settings.continuousScroll)
     ? pageOrder.filter((p) => !state.deletedPages.has(p))
     : [state.currentPage];
 
   return (
     <div
       ref={containerRef}
-      className={`pdf-viewer ${currentTool === 'pan' ? 'panning' : ''} ${isPanning ? 'is-panning' : ''}`}
+      className={`pdf-viewer ${currentTool === 'pan' ? 'panning' : ''} ${isPanning ? 'is-panning' : ''} ${isPrinting ? 'print-mode' : ''}`}
       onMouseDown={handlePanMouseDown}
       onMouseMove={handlePanMouseMove}
       onMouseUp={handlePanMouseUp}

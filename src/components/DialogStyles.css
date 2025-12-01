@@ -215,10 +215,10 @@
 .dialog-error {
   margin-top: 16px;
   padding: 12px;
-  background: rgba(220, 53, 69, 0.1);
-  border: 1px solid rgba(220, 53, 69, 0.3);
-  border-radius: 6px;
-  color: #dc3545;
+  background: var(--error-bg);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
   font-size: 13px;
 }
 

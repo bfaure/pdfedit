@@ -104,11 +104,10 @@
   padding-right: 8px;
 }
 
-/* Mobile responsiveness */
+/* Mobile responsiveness - hide menu bar completely on mobile */
 @media (max-width: 768px) {
   .menu-bar {
-    padding: 0 4px;
-    height: 32px;
+    display: none !important;
   }
 
   .menu-button {

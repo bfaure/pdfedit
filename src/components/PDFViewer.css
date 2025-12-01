@@ -81,3 +81,19 @@
 .pdf-viewer.panning * {
   cursor: inherit;
 }
+
+/* Print mode - disable containment and ensure all pages are visible */
+.pdf-viewer.print-mode {
+  contain: none;
+  overflow: visible;
+  height: auto;
+}
+
+.pdf-viewer.print-mode .pages-container {
+  height: auto;
+  overflow: visible;
+}
+
+.pdf-viewer.print-mode .page-wrapper {
+  visibility: visible;
+}

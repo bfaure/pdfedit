@@ -10,9 +10,11 @@ interface ToolbarProps {
   onToggleSidebar?: () => void;
   sidebarOpen?: boolean;
   visibleTools?: Tool[];
+  onMobileMenuOpen?: () => void;
+  onPrint?: () => void;
 }
 
-export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools }: ToolbarProps) {
+export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, onMobileMenuOpen, onPrint }: ToolbarProps) {
   const {
     state,
     settings,
@@ -91,7 +93,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools }
     return (
       <div className="toolbar">
         <div className="toolbar-section">
-          <span className="toolbar-hint">Use File menu to open a PDF</span>
+          {!isMobile && <span className="toolbar-hint">Use File menu to open a PDF</span>}
         </div>
         <div className="toolbar-spacer" />
         <div className="toolbar-section">
@@ -204,20 +206,25 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools }
         )}
       </div>
 
-      <div className="toolbar-divider" />
+      {/* Hide tools section on mobile - tools are in the mobile menu */}
+      {!isMobile && (
+        <>
+          <div className="toolbar-divider" />
 
-      <div className="toolbar-section tools">
-        {tools.map((tool) => (
-          <button
-            key={tool.id}
-            className={`toolbar-btn tool-btn ${currentTool === tool.id ? 'active' : ''}`}
-            onClick={() => setTool(tool.id)}
-            title={tool.label}
-          >
-            {tool.icon}
-          </button>
-        ))}
-      </div>
+          <div className="toolbar-section tools">
+            {tools.map((tool) => (
+              <button
+                key={tool.id}
+                className={`toolbar-btn tool-btn ${currentTool === tool.id ? 'active' : ''}`}
+                onClick={() => setTool(tool.id)}
+                title={tool.label}
+              >
+                {tool.icon}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="toolbar-divider" />
 
@@ -259,7 +266,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools }
         </button>
         <button
           className="toolbar-btn"
-          onClick={() => window.print()}
+          onClick={onPrint}
           title="Print"
         >
           🖨️
@@ -281,6 +288,17 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools }
           {settings.theme === 'light' ? '☀️' : settings.theme === 'dark' ? '🌙' : '🖥️'}
         </button>
       </div>
+
+      {/* Mobile menu button */}
+      {isMobile && (
+        <button
+          className="toolbar-btn mobile-more-btn"
+          onClick={onMobileMenuOpen}
+          title="More options"
+        >
+          ⋮
+        </button>
+      )}
     </div>
   );
 }

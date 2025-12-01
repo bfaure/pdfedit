@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { PDFProvider, usePDF } from './contexts/PDFContext';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
 import { Sidebar } from './components/Sidebar';
 import { PDFViewer } from './components/PDFViewer';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { FileDropZone } from './components/FileDropZone';
 import { SignaturePad } from './components/SignaturePad';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -14,14 +16,44 @@ import { SplitPDFDialog } from './components/SplitPDFDialog';
 import { MergePDFDialog } from './components/MergePDFDialog';
 import { LegalPages } from './components/LegalPages';
 import { AboutDialog } from './components/AboutDialog';
+import { MobileMenu } from './components/MobileMenu';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { exportPDF, downloadBlob } from './utils/pdfExport';
 import type { Tool } from './types/pdf';
 import './App.css';
 
 const DEFAULT_VISIBLE_TOOLS: Tool[] = ['select', 'pan', 'highlight', 'text', 'draw', 'rectangle', 'circle', 'arrow', 'signature', 'eraser'];
 
+// Component shown when user navigates directly to /editor without a file
+function EditorEmptyState({ onOpenFile, isMobile }: { onOpenFile: () => void; isMobile: boolean }) {
+  return (
+    <div className="editor-empty-state">
+      <div className="editor-empty-content">
+        <div className="editor-empty-icon">📄</div>
+        <h2>No PDF Open</h2>
+        <p>
+          {isMobile
+            ? 'Tap the menu button (⋮) to open a PDF file'
+            : 'Use File → Open or drag and drop a PDF to get started'}
+        </p>
+        <button className="editor-empty-btn" onClick={onOpenFile}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          Open PDF
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { state, settings, currentTool, loadFile, addAnnotation, setTool, requestFitToPage } = usePDF();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signaturePosition, setSignaturePosition] = useState<{ x: number; y: number; pageNumber: number } | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -36,6 +68,9 @@ function AppContent() {
   const [extractPreselectedPages, setExtractPreselectedPages] = useState<number[]>([]);
   const [showLegalPage, setShowLegalPage] = useState<'privacy' | 'terms' | null>(null);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,14 +136,17 @@ function AppContent() {
     }
   }, [settings.theme]);
 
-  // Update page title based on loaded file
+  // Always show the same title
   useEffect(() => {
-    if (state.file && state.fileName) {
-      document.title = state.fileName;
-    } else {
-      document.title = 'PDFEdit.live — Free & Private PDF Editor';
+    document.title = 'PDFEdit.live — Free & Private PDF Editor';
+  }, []);
+
+  // Navigate to /editor when a file is loaded
+  useEffect(() => {
+    if (state.file && location.pathname !== '/editor') {
+      navigate('/editor');
     }
-  }, [state.file, state.fileName]);
+  }, [state.file, location.pathname, navigate]);
 
   // Handle window resize
   useEffect(() => {
@@ -177,6 +215,65 @@ function AppContent() {
     setSignaturePosition(null);
   }, []);
 
+  // Mobile menu save handler
+  const handleMobileSave = useCallback(async () => {
+    if (!state.file) return;
+
+    setIsSaving(true);
+    try {
+      const blob = await exportPDF({
+        originalFile: state.file,
+        annotations: state.annotations,
+        pageRotations: state.pageRotations,
+        deletedPages: state.deletedPages,
+        pageOrder: state.pageOrder,
+        globalRotation: state.rotation,
+      });
+
+      const baseName = state.fileName.replace(/\.pdf$/i, '');
+      downloadBlob(blob, `${baseName}_edited.pdf`);
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert('Failed to save PDF');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [state]);
+
+  // Print handler - renders all pages before printing
+  const handlePrint = useCallback(() => {
+    if (!state.file) return;
+
+    // Set isPrinting to true to render all pages
+    setIsPrinting(true);
+
+    // Wait for React to render and all canvases to paint
+    // Need to wait for:
+    // 1. React to commit render (requestAnimationFrame)
+    // 2. Each PageCanvas 50ms debounce to fire
+    // 3. Each canvas to actually render (async PDF.js render)
+    // Using a generous timeout to ensure all pages are fully rendered
+    const numPages = state.numPages - state.deletedPages.size;
+    const renderTimePerPage = 150; // Estimate for PDF.js render
+    const baseDelay = 200; // Base delay for React render + debounce
+    const totalDelay = Math.max(1000, baseDelay + numPages * renderTimePerPage);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Force layout/paint
+          document.body.offsetHeight;
+
+          // Double-check canvases are ready by forcing another frame
+          requestAnimationFrame(() => {
+            window.print();
+            setIsPrinting(false);
+          });
+        }, totalDelay);
+      });
+    });
+  }, [state.file, state.numPages, state.deletedPages.size]);
+
   const showSidebar = settings.showThumbnails && state.file;
   const sidebarOpen = isMobile ? mobileSidebarOpen : true;
 
@@ -206,12 +303,15 @@ function AppContent() {
           onShowPrivacy={() => setShowLegalPage('privacy')}
           onShowTerms={() => setShowLegalPage('terms')}
           onShowAbout={() => setShowAboutDialog(true)}
+          onPrint={handlePrint}
         />
         <Toolbar
           isMobile={isMobile}
           onToggleSidebar={toggleMobileSidebar}
           sidebarOpen={mobileSidebarOpen}
           visibleTools={visibleTools}
+          onMobileMenuOpen={() => setMobileMenuOpen(true)}
+          onPrint={handlePrint}
         />
         <div className="main-content">
           {showSidebar && (
@@ -225,10 +325,30 @@ function AppContent() {
               )}
             </>
           )}
-          <PDFViewer
-            onShowPrivacy={() => setShowLegalPage('privacy')}
-            onShowTerms={() => setShowLegalPage('terms')}
-          />
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <WelcomeScreen
+                  onShowPrivacy={() => setShowLegalPage('privacy')}
+                  onShowTerms={() => setShowLegalPage('terms')}
+                />
+              }
+            />
+            <Route
+              path="/editor"
+              element={
+                state.file ? (
+                  <PDFViewer isPrinting={isPrinting} />
+                ) : (
+                  <EditorEmptyState
+                    onOpenFile={() => fileInputRef.current?.click()}
+                    isMobile={isMobile}
+                  />
+                )
+              }
+            />
+          </Routes>
         </div>
         {state.isLoading && (
           <div className="loading-overlay">
@@ -287,6 +407,22 @@ function AppContent() {
           isOpen={showAboutDialog}
           onClose={() => setShowAboutDialog(false)}
         />
+        {isMobile && (
+          <MobileMenu
+            isOpen={mobileMenuOpen}
+            onClose={() => setMobileMenuOpen(false)}
+            hasFile={!!state.file}
+            isSaving={isSaving}
+            onOpenFile={() => fileInputRef.current?.click()}
+            onSave={handleMobileSave}
+            onMergeFiles={() => setShowMergeDialog(true)}
+            onExtractPages={() => setShowExtractDialog(true)}
+            onSplitPDF={() => setShowSplitDialog(true)}
+            onShowAbout={() => setShowAboutDialog(true)}
+            currentTool={currentTool}
+            onSelectTool={setTool}
+          />
+        )}
       </div>
     </FileDropZone>
   );

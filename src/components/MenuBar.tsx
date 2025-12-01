@@ -18,6 +18,7 @@ interface MenuBarProps {
   onShowPrivacy: () => void;
   onShowTerms: () => void;
   onShowAbout: () => void;
+  onPrint: () => void;
 }
 
 interface MenuItem {
@@ -43,7 +44,7 @@ const ALL_TOOLS: { id: Tool; label: string }[] = [
   { id: 'eraser', label: 'Eraser' },
 ];
 
-export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout }: MenuBarProps) {
+export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout, onPrint }: MenuBarProps) {
   const {
     state,
     settings,
@@ -129,7 +130,7 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
         // Brief tip before printing
         const printTip = 'Tip: In the print dialog, disable "Headers and footers" for a cleaner output.';
         if (window.confirm(printTip + '\n\nProceed to print?')) {
-          window.print();
+          onPrint();
         }
       },
       shortcut: 'Ctrl+P',

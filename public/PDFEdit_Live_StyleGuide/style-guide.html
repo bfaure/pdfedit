@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFEdit.live - Brand Style Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Primary Colors */
+            --color-primary: #02B7FF;
+            --color-primary-dark: #0195D4;
+            --color-primary-light: #33C4FF;
+            --color-navy: #1A2237;
+
+            /* Neutral Colors */
+            --color-white: #FFFFFF;
+            --color-gray-50: #F5F7FA;
+            --color-gray-200: #E1E8ED;
+            --color-gray-500: #8899A8;
+            --color-gray-700: #2A3142;
+
+            /* Semantic Colors */
+            --color-success: #10B981;
+            --color-warning: #F59E0B;
+            --color-error: #EF4444;
+            --color-info: #3B82F6;
+
+            /* Typography */
+            --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+            /* Spacing */
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            --space-2xl: 48px;
+            --space-3xl: 64px;
+
+            /* Border Radius */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 3px rgba(26, 34, 55, 0.06);
+            --shadow-md: 0 2px 8px rgba(26, 34, 55, 0.08);
+            --shadow-lg: 0 8px 16px rgba(26, 34, 55, 0.12);
+        }
+
+        body {
+            font-family: var(--font-primary);
+            background: var(--color-gray-50);
+            color: var(--color-navy);
+            line-height: 1.6;
+        }
+
+        body.dark-mode {
+            background: var(--color-navy);
+            color: var(--color-white);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-2xl);
+        }
+
+        header {
+            background: var(--color-white);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-2xl);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        body.dark-mode header {
+            background: var(--color-gray-700);
+        }
+
+        .logo {
+            max-width: 300px;
+            height: auto;
+        }
+
+        .dark-mode-toggle {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-family: var(--font-primary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .dark-mode-toggle:hover {
+            background: var(--color-primary-light);
+            transform: translateY(-2px);
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: var(--space-lg);
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+        }
+
+        h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin: var(--space-2xl) 0 var(--space-lg);
+            color: var(--color-navy);
+        }
+
+        body.dark-mode h2 {
+            color: var(--color-white);
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: var(--space-xl) 0 var(--space-md);
+            color: var(--color-navy);
+        }
+
+        body.dark-mode h3 {
+            color: var(--color-white);
+        }
+
+        .section {
+            background: var(--color-white);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        body.dark-mode .section {
+            background: var(--color-gray-700);
+        }
+
+        /* Color Swatches */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-md);
+        }
+
+        .color-swatch {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-gray-200);
+        }
+
+        body.dark-mode .color-swatch {
+            border-color: #3A4459;
+        }
+
+        .color-sample {
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .color-info {
+            padding: var(--space-md);
+            background: var(--color-white);
+        }
+
+        body.dark-mode .color-info {
+            background: var(--color-gray-700);
+            border-top: 1px solid #3A4459;
+        }
+
+        .color-name {
+            font-weight: 600;
+            margin-bottom: var(--space-xs);
+            color: var(--color-navy);
+        }
+
+        body.dark-mode .color-name {
+            color: var(--color-white);
+        }
+
+        .color-hex {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--color-gray-500);
+        }
+
+        .color-usage {
+            font-size: 0.75rem;
+            color: var(--color-gray-500);
+            margin-top: var(--space-xs);
+        }
+
+        /* Typography */
+        .type-sample {
+            margin-bottom: var(--space-xl);
+            padding-bottom: var(--space-xl);
+            border-bottom: 1px solid var(--color-gray-200);
+        }
+
+        body.dark-mode .type-sample {
+            border-bottom-color: #3A4459;
+        }
+
+        .type-sample:last-child {
+            border-bottom: none;
+        }
+
+        .type-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: var(--space-sm);
+            flex-wrap: wrap;
+            gap: var(--space-md);
+        }
+
+        .type-label {
+            font-size: 0.875rem;
+            color: var(--color-gray-500);
+            font-family: var(--font-mono);
+        }
+
+        .type-specs {
+            font-size: 0.75rem;
+            color: var(--color-gray-500);
+            font-family: var(--font-mono);
+        }
+
+        .display {
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .h1-sample {
+            font-size: 2.25rem;
+            font-weight: 700;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+        }
+
+        .h2-sample {
+            font-size: 1.875rem;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .h3-sample {
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .h4-sample {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+
+        .body-large {
+            font-size: 1.125rem;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .body-sample {
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .body-small {
+            font-size: 0.875rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .caption-sample {
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* Buttons */
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-md);
+        }
+
+        .button-sample {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-family: var(--font-primary);
+            font-weight: 500;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-primary-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:active {
+            background: var(--color-primary-dark);
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--color-navy);
+            color: var(--color-navy);
+        }
+
+        body.dark-mode .btn-secondary {
+            border-color: var(--color-white);
+            color: var(--color-white);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-gray-50);
+        }
+
+        body.dark-mode .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--color-primary);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(2, 183, 255, 0.1);
+        }
+
+        .btn-success {
+            background: var(--color-success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #0ea472;
+        }
+
+        .btn-error {
+            background: var(--color-error);
+            color: white;
+        }
+
+        .btn-error:hover {
+            background: #dc2626;
+        }
+
+        .btn-disabled {
+            background: var(--color-gray-200);
+            color: var(--color-gray-500);
+            cursor: not-allowed;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+
+        label {
+            display: block;
+            margin-bottom: var(--space-sm);
+            font-weight: 500;
+            color: var(--color-navy);
+        }
+
+        body.dark-mode label {
+            color: var(--color-white);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-primary);
+            font-size: 16px;
+            background: var(--color-white);
+            color: var(--color-navy);
+            transition: all 0.2s ease;
+        }
+
+        body.dark-mode input[type="text"],
+        body.dark-mode input[type="email"],
+        body.dark-mode textarea,
+        body.dark-mode select {
+            background: var(--color-gray-700);
+            border-color: #3A4459;
+            color: var(--color-white);
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border: 2px solid var(--color-primary);
+            padding: 9px 13px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-md);
+        }
+
+        .card {
+            background: var(--color-white);
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .card {
+            background: var(--color-navy);
+            border-color: #3A4459;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: var(--space-sm);
+            color: var(--color-navy);
+        }
+
+        body.dark-mode .card h4 {
+            color: var(--color-white);
+        }
+
+        .card p {
+            color: var(--color-gray-500);
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        /* Spacing */
+        .spacing-grid {
+            display: grid;
+            gap: var(--space-lg);
+        }
+
+        .spacing-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-lg);
+        }
+
+        .spacing-visual {
+            background: var(--color-primary);
+            border-radius: var(--radius-sm);
+        }
+
+        .spacing-label {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            min-width: 150px;
+        }
+
+        /* Logo Display */
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-xl);
+            margin-top: var(--space-md);
+        }
+
+        .logo-display {
+            padding: var(--space-xl);
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-md);
+            text-align: center;
+        }
+
+        body.dark-mode .logo-display {
+            border-color: #3A4459;
+        }
+
+        .logo-display.dark-bg {
+            background: var(--color-navy);
+        }
+
+        .logo-display.light-bg {
+            background: var(--color-white);
+        }
+
+        body.dark-mode .logo-display.light-bg {
+            background: var(--color-gray-700);
+        }
+
+        .logo-display img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .logo-caption {
+            margin-top: var(--space-md);
+            font-size: 0.875rem;
+            color: var(--color-gray-500);
+            font-weight: 500;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--color-success);
+            color: #065f46;
+        }
+
+        body.dark-mode .alert-success {
+            color: #6ee7b7;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--color-warning);
+            color: #92400e;
+        }
+
+        body.dark-mode .alert-warning {
+            color: #fcd34d;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--color-error);
+            color: #991b1b;
+        }
+
+        body.dark-mode .alert-error {
+            color: #fca5a5;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--color-info);
+            color: #1e40af;
+        }
+
+        body.dark-mode .alert-info {
+            color: #93c5fd;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--space-md);
+            }
+
+            header {
+                flex-direction: column;
+                gap: var(--space-md);
+            }
+
+            .display {
+                font-size: 2rem;
+            }
+
+            .h1-sample {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="PDFEdit_Horizontal_TPBG.png" alt="PDFEdit.live Logo" class="logo" id="header-logo">
+            <button class="dark-mode-toggle" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+        </header>
+
+        <h1>PDFEdit.live Brand Style Guide</h1>
+
+        <!-- Colors Section -->
+        <div class="section">
+            <h2>Primary Colors</h2>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #02B7FF;">Electric Blue</div>
+                    <div class="color-info">
+                        <div class="color-name">Electric Blue</div>
+                        <div class="color-hex">#02B7FF</div>
+                        <div class="color-usage">Primary CTAs, links, active states</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #1A2237;">Navy Blue</div>
+                    <div class="color-info">
+                        <div class="color-name">Navy Blue</div>
+                        <div class="color-hex">#1A2237</div>
+                        <div class="color-usage">Primary text, headings, dark backgrounds</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #33C4FF;">Light Blue</div>
+                    <div class="color-info">
+                        <div class="color-name">Light Blue</div>
+                        <div class="color-hex">#33C4FF</div>
+                        <div class="color-usage">Hover states, secondary buttons</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #0195D4;">Deep Blue</div>
+                    <div class="color-info">
+                        <div class="color-name">Deep Blue</div>
+                        <div class="color-hex">#0195D4</div>
+                        <div class="color-usage">Active states, pressed buttons</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Neutral Colors</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #FFFFFF; color: #1A2237; border: 1px solid #E1E8ED;">White</div>
+                    <div class="color-info">
+                        <div class="color-name">White</div>
+                        <div class="color-hex">#FFFFFF</div>
+                        <div class="color-usage">Backgrounds, text on dark</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #F5F7FA; color: #1A2237;">Light Gray</div>
+                    <div class="color-info">
+                        <div class="color-name">Light Gray</div>
+                        <div class="color-hex">#F5F7FA</div>
+                        <div class="color-usage">Secondary backgrounds, card backgrounds</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #E1E8ED; color: #1A2237;">Medium Gray</div>
+                    <div class="color-info">
+                        <div class="color-name">Medium Gray</div>
+                        <div class="color-hex">#E1E8ED</div>
+                        <div class="color-usage">Borders, dividers, inactive states</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #8899A8;">Text Gray</div>
+                    <div class="color-info">
+                        <div class="color-name">Text Gray</div>
+                        <div class="color-hex">#8899A8</div>
+                        <div class="color-usage">Secondary text, placeholders</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Semantic Colors</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #10B981;">Success</div>
+                    <div class="color-info">
+                        <div class="color-name">Success Green</div>
+                        <div class="color-hex">#10B981</div>
+                        <div class="color-usage">Success messages, confirmations</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #F59E0B;">Warning</div>
+                    <div class="color-info">
+                        <div class="color-name">Warning Orange</div>
+                        <div class="color-hex">#F59E0B</div>
+                        <div class="color-usage">Warning messages, caution</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #EF4444;">Error</div>
+                    <div class="color-info">
+                        <div class="color-name">Error Red</div>
+                        <div class="color-hex">#EF4444</div>
+                        <div class="color-usage">Error messages, destructive actions</div>
+                    </div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-sample" style="background: #3B82F6;">Info</div>
+                    <div class="color-info">
+                        <div class="color-name">Info Blue</div>
+                        <div class="color-hex">#3B82F6</div>
+                        <div class="color-usage">Informational messages, tips</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typography Section -->
+        <div class="section">
+            <h2>Typography</h2>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Display Heading</span>
+                    <span class="type-specs">48px / 700 / -0.02em / 1.2</span>
+                </div>
+                <div class="display">The quick brown fox jumps</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Heading 1</span>
+                    <span class="type-specs">36px / 700 / -0.01em / 1.3</span>
+                </div>
+                <div class="h1-sample">Edit PDFs in real-time with PDFEdit.live</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Heading 2</span>
+                    <span class="type-specs">30px / 600 / 1.4</span>
+                </div>
+                <div class="h2-sample">Powerful features for modern teams</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Heading 3</span>
+                    <span class="type-specs">24px / 600 / 1.4</span>
+                </div>
+                <div class="h3-sample">Collaborate seamlessly with your team</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Heading 4</span>
+                    <span class="type-specs">20px / 600 / 1.5</span>
+                </div>
+                <div class="h4-sample">Real-time collaboration made simple</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Body Large</span>
+                    <span class="type-specs">18px / 400 / 1.6</span>
+                </div>
+                <div class="body-large">PDFEdit.live transforms how teams work with PDF documents, offering real-time editing and collaboration that just works.</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Body</span>
+                    <span class="type-specs">16px / 400 / 1.6</span>
+                </div>
+                <div class="body-sample">This is the standard body text used throughout the application. It's designed for optimal readability at 16px with a comfortable line height of 1.6.</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Body Small</span>
+                    <span class="type-specs">14px / 400 / 1.5</span>
+                </div>
+                <div class="body-small">Smaller body text for secondary information, labels, and supporting content that doesn't need as much visual prominence.</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Caption</span>
+                    <span class="type-specs">12px / 400 / 1.4</span>
+                </div>
+                <div class="caption-sample">Caption text for image descriptions, footnotes, and minimal supporting information.</div>
+            </div>
+
+            <div class="type-sample">
+                <div class="type-info">
+                    <span class="type-label">Monospace</span>
+                    <span class="type-specs">JetBrains Mono / 14px</span>
+                </div>
+                <div style="font-family: var(--font-mono); font-size: 0.875rem;">const editPDF = () => { return 'real-time'; }</div>
+            </div>
+        </div>
+
+        <!-- Buttons Section -->
+        <div class="section">
+            <h2>Buttons</h2>
+            <div class="button-grid">
+                <div class="button-sample">
+                    <button class="btn btn-primary">Primary Button</button>
+                    <small style="color: var(--color-gray-500);">Main actions, CTAs</small>
+                </div>
+                <div class="button-sample">
+                    <button class="btn btn-secondary">Secondary Button</button>
+                    <small style="color: var(--color-gray-500);">Secondary actions</small>
+                </div>
+                <div class="button-sample">
+                    <button class="btn btn-ghost">Ghost Button</button>
+                    <small style="color: var(--color-gray-500);">Tertiary actions</small>
+                </div>
+                <div class="button-sample">
+                    <button class="btn btn-success">Success Button</button>
+                    <small style="color: var(--color-gray-500);">Confirmations</small>
+                </div>
+                <div class="button-sample">
+                    <button class="btn btn-error">Danger Button</button>
+                    <small style="color: var(--color-gray-500);">Destructive actions</small>
+                </div>
+                <div class="button-sample">
+                    <button class="btn btn-disabled" disabled>Disabled Button</button>
+                    <small style="color: var(--color-gray-500);">Inactive state</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Elements Section -->
+        <div class="section">
+            <h2>Form Elements</h2>
+            <div class="form-group">
+                <label for="text-input">Text Input</label>
+                <input type="text" id="text-input" placeholder="Enter your text here">
+            </div>
+            <div class="form-group">
+                <label for="email-input">Email Input</label>
+                <input type="email" id="email-input" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label for="select-input">Select Dropdown</label>
+                <select id="select-input">
+                    <option>Option 1</option>
+                    <option>Option 2</option>
+                    <option>Option 3</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="textarea-input">Textarea</label>
+                <textarea id="textarea-input" placeholder="Enter your message here"></textarea>
+            </div>
+        </div>
+
+        <!-- Alerts Section -->
+        <div class="section">
+            <h2>Alerts & Messages</h2>
+            <div class="alert alert-success">
+                <strong>Success!</strong> Your PDF has been saved successfully.
+            </div>
+            <div class="alert alert-info">
+                <strong>Info:</strong> Your changes are being synced in real-time.
+            </div>
+            <div class="alert alert-warning">
+                <strong>Warning:</strong> You have unsaved changes.
+            </div>
+            <div class="alert alert-error">
+                <strong>Error:</strong> Failed to upload PDF. Please try again.
+            </div>
+        </div>
+
+        <!-- Cards Section -->
+        <div class="section">
+            <h2>Cards</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h4>Real-time Editing</h4>
+                    <p>Edit PDFs instantly with live updates. See changes as they happen, collaborate with your team in real-time.</p>
+                </div>
+                <div class="card">
+                    <h4>Cloud Sync</h4>
+                    <p>All your documents automatically synced across devices. Access your PDFs anywhere, anytime.</p>
+                </div>
+                <div class="card">
+                    <h4>Secure & Private</h4>
+                    <p>Enterprise-grade encryption keeps your documents safe. Your privacy is our priority.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spacing Section -->
+        <div class="section">
+            <h2>Spacing System (8px base)</h2>
+            <div class="spacing-grid">
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 4px; height: 24px;"></div>
+                    <span class="spacing-label">Extra Small: 4px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 8px; height: 24px;"></div>
+                    <span class="spacing-label">Small: 8px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 16px; height: 24px;"></div>
+                    <span class="spacing-label">Medium: 16px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 24px; height: 24px;"></div>
+                    <span class="spacing-label">Large: 24px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 32px; height: 24px;"></div>
+                    <span class="spacing-label">Extra Large: 32px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 48px; height: 24px;"></div>
+                    <span class="spacing-label">2XL: 48px</span>
+                </div>
+                <div class="spacing-item">
+                    <div class="spacing-visual" style="width: 64px; height: 24px;"></div>
+                    <span class="spacing-label">3XL: 64px</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logo Section -->
+        <div class="section">
+            <h2>Logo Variations</h2>
+            <div class="logo-grid">
+                <div class="logo-display light-bg">
+                    <img src="PDFEdit_Horizontal_TPBG.png" alt="Horizontal Logo - Light">
+                    <div class="logo-caption">Horizontal - Light Background</div>
+                </div>
+                <div class="logo-display dark-bg">
+                    <img src="PDFEdit_Horizontal_Dark.png" alt="Horizontal Logo - Dark">
+                    <div class="logo-caption" style="color: var(--color-gray-500);">Horizontal - Dark Background</div>
+                </div>
+                <div class="logo-display light-bg">
+                    <img src="PDFEdit_Vertical_TPBG.png" alt="Vertical Logo - Light" style="max-width: 200px;">
+                    <div class="logo-caption">Vertical - Light Background</div>
+                </div>
+                <div class="logo-display dark-bg">
+                    <img src="PDFEdit_Vertical_Dark.png" alt="Vertical Logo - Dark" style="max-width: 200px;">
+                    <div class="logo-caption" style="color: var(--color-gray-500);">Vertical - Dark Background</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+
+            const logo = document.getElementById('header-logo');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+
+            if (isDarkMode) {
+                logo.src = 'dark_TP bg.png';
+            } else {
+                logo.src = 'PDFEdit_Horizontal_TPBG.png';
+            }
+        }
+    </script>
+</body>
+</html>

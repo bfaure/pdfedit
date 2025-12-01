@@ -1,0 +1,125 @@
+.mobile-menu-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 199;
+}
+
+.mobile-menu {
+  position: fixed;
+  top: 52px;
+  right: 8px;
+  min-width: 180px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  padding: 8px 0;
+  z-index: 200;
+  animation: mobileMenuSlide 0.15s ease;
+}
+
+@keyframes mobileMenuSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 15px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mobile-menu-item:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.mobile-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mobile-menu-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.mobile-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 8px 12px;
+}
+
+.mobile-menu-label {
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-menu-tools {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.mobile-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-color);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobile-tool-btn:hover {
+  background: var(--hover-bg);
+}
+
+.mobile-tool-btn.active {
+  background: var(--accent-color-light);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.mobile-tool-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-tool-label {
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
