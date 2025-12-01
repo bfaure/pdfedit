@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node -e \"require('fs').copyFileSync('dist/index.html','dist/editor.html')\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,7 +14,8 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.394",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
