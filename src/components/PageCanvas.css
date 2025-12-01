@@ -187,6 +187,14 @@
   font-style: italic;
 }
 
+/* Prevent mobile browsers from auto-zooming on input focus */
+@media (max-width: 768px) {
+  .inline-text-input,
+  .text-input-container .inline-text-input {
+    font-size: 16px !important; /* Minimum 16px prevents iOS/Android auto-zoom */
+  }
+}
+
 /* Dragging state */
 .page-canvas-container.dragging-annotation {
   cursor: move;
@@ -463,4 +471,56 @@
   top: 50%;
   transform: translateY(-50%);
   cursor: ew-resize;
+}
+
+/* Larger touch targets for mobile */
+@media (max-width: 768px) {
+  .text-input-resize-handle {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+  }
+
+  /* Corner handles - mobile */
+  .text-input-resize-handle.nw {
+    top: -12px;
+    left: -12px;
+  }
+
+  .text-input-resize-handle.ne {
+    top: -12px;
+    right: -12px;
+  }
+
+  .text-input-resize-handle.sw {
+    bottom: -12px;
+    left: -12px;
+  }
+
+  .text-input-resize-handle.se {
+    bottom: -12px;
+    right: -12px;
+  }
+
+  /* Edge handles - mobile */
+  .text-input-resize-handle.n {
+    top: -12px;
+  }
+
+  .text-input-resize-handle.s {
+    bottom: -12px;
+  }
+
+  .text-input-resize-handle.w {
+    left: -12px;
+  }
+
+  .text-input-resize-handle.e {
+    right: -12px;
+  }
+
+  /* Larger drag handle for moving text box */
+  .text-input-drag-handle {
+    height: 24px;
+  }
 }

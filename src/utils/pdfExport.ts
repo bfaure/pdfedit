@@ -8,10 +8,11 @@ interface ExportOptions {
   deletedPages: Set<number>;
   pageOrder: number[];
   globalRotation: number;
+  metadataSanitized?: boolean;
 }
 
 export async function exportPDF(options: ExportOptions): Promise<Blob> {
-  const { originalFile, annotations, pageRotations, deletedPages, pageOrder, globalRotation } = options;
+  const { originalFile, annotations, pageRotations, deletedPages, pageOrder, globalRotation, metadataSanitized } = options;
 
   // Load the original PDF
   const originalBytes = await originalFile.arrayBuffer();
@@ -189,6 +190,18 @@ export async function exportPDF(options: ExportOptions): Promise<Blob> {
           break;
       }
     }
+  }
+
+  // Strip metadata if requested
+  if (metadataSanitized) {
+    pdfDoc.setTitle('');
+    pdfDoc.setAuthor('');
+    pdfDoc.setSubject('');
+    pdfDoc.setKeywords([]);
+    pdfDoc.setCreator('');
+    pdfDoc.setProducer('');
+    pdfDoc.setCreationDate(new Date(0));
+    pdfDoc.setModificationDate(new Date(0));
   }
 
   // Save the modified PDF

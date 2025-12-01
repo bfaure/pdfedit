@@ -19,6 +19,7 @@ interface MenuBarProps {
   onShowTerms: () => void;
   onShowAbout: () => void;
   onPrint: () => void;
+  onShowMetadata: () => void;
 }
 
 interface MenuItem {
@@ -44,7 +45,7 @@ const ALL_TOOLS: { id: Tool; label: string }[] = [
   { id: 'eraser', label: 'Eraser' },
 ];
 
-export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout, onPrint }: MenuBarProps) {
+export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout, onPrint, onShowMetadata }: MenuBarProps) {
   const {
     state,
     settings,
@@ -93,6 +94,7 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
         deletedPages: state.deletedPages,
         pageOrder: state.pageOrder,
         globalRotation: state.rotation,
+        metadataSanitized: state.metadataSanitized,
       });
 
       const baseName = state.fileName.replace(/\.pdf$/i, '');
@@ -158,6 +160,8 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
     { label: '', divider: true },
     { label: 'Rotate All Clockwise', action: () => setRotation(state.rotation + 90), shortcut: 'R', disabled: !state.file },
     { label: 'Rotate All Counter-clockwise', action: () => setRotation(state.rotation - 90), shortcut: 'Shift+R', disabled: !state.file },
+    { label: '', divider: true },
+    { label: 'Document Metadata...', action: onShowMetadata, disabled: !state.file },
   ];
 
   const viewMenu: MenuItem[] = [

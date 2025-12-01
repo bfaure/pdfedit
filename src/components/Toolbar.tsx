@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePDF } from '../contexts/PDFContext';
 import type { Tool } from '../types/pdf';
 import './Toolbar.css';
@@ -12,9 +12,10 @@ interface ToolbarProps {
   visibleTools?: Tool[];
   onMobileMenuOpen?: () => void;
   onPrint?: () => void;
+  onShowSearch?: () => void;
 }
 
-export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, onMobileMenuOpen, onPrint }: ToolbarProps) {
+export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, onMobileMenuOpen, onPrint, onShowSearch }: ToolbarProps) {
   const {
     state,
     settings,
@@ -23,8 +24,6 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
     canRedo,
     setCurrentPage,
     setScale,
-    deletePage,
-    restorePage,
     setTool,
     updateSettings,
     undo,
@@ -52,16 +51,20 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
     }
   };
 
-  const handleDeleteCurrentPage = () => {
-    if (state.deletedPages.has(state.currentPage)) {
-      restorePage(state.currentPage);
-    } else {
-      deletePage(state.currentPage);
-    }
-  };
+  // Shapes dropdown state
+  const [shapesOpen, setShapesOpen] = useState(false);
+  const shapesRef = useRef<HTMLDivElement>(null);
 
-  const isCurrentPageDeleted = state.deletedPages.has(state.currentPage);
-  const deletedCount = state.deletedPages.size;
+  // Close shapes dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (shapesRef.current && !shapesRef.current.contains(e.target as Node)) {
+        setShapesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const eraserIcon = (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,23 +73,36 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
     </svg>
   );
 
-  const allTools: { id: Tool; icon: React.ReactNode; label: string }[] = [
+  // Shape tools (collapsed into dropdown)
+  const shapeTools: { id: Tool; icon: React.ReactNode; label: string }[] = [
+    { id: 'rectangle', icon: '▢', label: 'Rectangle' },
+    { id: 'circle', icon: '○', label: 'Circle' },
+    { id: 'arrow', icon: '→', label: 'Arrow' },
+  ];
+
+  // Main tools (excluding shapes)
+  const mainTools: { id: Tool; icon: React.ReactNode; label: string }[] = [
     { id: 'select', icon: '☝', label: 'Select' },
     { id: 'pan', icon: '✋', label: 'Pan' },
     { id: 'highlight', icon: '🖍', label: 'Highlight' },
     { id: 'text', icon: 'T', label: 'Add Text' },
     { id: 'draw', icon: '✏', label: 'Draw' },
-    { id: 'rectangle', icon: '▢', label: 'Rectangle' },
-    { id: 'circle', icon: '○', label: 'Circle' },
-    { id: 'arrow', icon: '→', label: 'Arrow' },
     { id: 'signature', icon: '✍', label: 'Signature' },
     { id: 'eraser', icon: eraserIcon, label: 'Eraser' },
   ];
 
   // Filter tools based on visibleTools prop
   const tools = visibleTools
-    ? allTools.filter(tool => visibleTools.includes(tool.id))
-    : allTools;
+    ? mainTools.filter(tool => visibleTools.includes(tool.id))
+    : mainTools;
+
+  const shapes = visibleTools
+    ? shapeTools.filter(tool => visibleTools.includes(tool.id))
+    : shapeTools;
+
+  // Check if any shape tool is currently selected
+  const isShapeToolSelected = shapeTools.some(t => t.id === currentTool);
+  const selectedShapeTool = shapeTools.find(t => t.id === currentTool);
 
   // Show minimal toolbar when no file is loaded
   if (!state.file) {
@@ -188,24 +204,6 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         </button>
       </div>
 
-      <div className="toolbar-divider" />
-
-      <div className="toolbar-section">
-        <button
-          className={`toolbar-btn ${isCurrentPageDeleted ? 'danger-active' : ''}`}
-          onClick={handleDeleteCurrentPage}
-          title={isCurrentPageDeleted ? "Restore Page" : "Delete Page"}
-        >
-          {isCurrentPageDeleted ? '♻️' : '🗑️'}
-          {!isMobile && <span className="btn-text"> {isCurrentPageDeleted ? 'Restore' : 'Delete'}</span>}
-        </button>
-        {deletedCount > 0 && (
-          <span className="deleted-count" title="Pages marked for deletion">
-            {deletedCount}{!isMobile && ' deleted'}
-          </span>
-        )}
-      </div>
-
       {/* Hide tools section on mobile - tools are in the mobile menu */}
       {!isMobile && (
         <>
@@ -222,6 +220,37 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
                 {tool.icon}
               </button>
             ))}
+
+            {/* Shapes dropdown */}
+            {shapes.length > 0 && (
+              <div className="shapes-dropdown" ref={shapesRef}>
+                <button
+                  className={`toolbar-btn tool-btn shapes-btn ${isShapeToolSelected ? 'active' : ''}`}
+                  onClick={() => setShapesOpen(!shapesOpen)}
+                  title="Shapes"
+                >
+                  {selectedShapeTool ? selectedShapeTool.icon : '⬡'}
+                  <span className="dropdown-arrow">▾</span>
+                </button>
+                {shapesOpen && (
+                  <div className="shapes-menu">
+                    {shapes.map((shape) => (
+                      <button
+                        key={shape.id}
+                        className={`shapes-menu-item ${currentTool === shape.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setTool(shape.id);
+                          setShapesOpen(false);
+                        }}
+                      >
+                        <span className="shape-icon">{shape.icon}</span>
+                        <span className="shape-label">{shape.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -270,6 +299,13 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           title="Print"
         >
           🖨️
+        </button>
+        <button
+          className="toolbar-btn"
+          onClick={onShowSearch}
+          title="Search (Ctrl+F)"
+        >
+          🔍
         </button>
       </div>
 

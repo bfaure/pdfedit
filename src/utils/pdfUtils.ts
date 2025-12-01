@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { TextLayer } from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { PDFDocument } from 'pdf-lib';
 
 // Configure PDF.js worker using CDN for reliability
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -195,4 +196,47 @@ export async function getFormFields(pdfDoc: PDFDocumentProxy): Promise<Array<{
   }
 
   return allFields;
+}
+
+// Sanitize PDF by removing all metadata
+export async function sanitizePDF(file: File): Promise<Uint8Array> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+  // Clear all standard metadata fields
+  pdfDoc.setTitle('');
+  pdfDoc.setAuthor('');
+  pdfDoc.setSubject('');
+  pdfDoc.setKeywords([]);
+  pdfDoc.setCreator('');
+  pdfDoc.setProducer('');
+  pdfDoc.setCreationDate(new Date(0)); // Set to epoch
+  pdfDoc.setModificationDate(new Date(0));
+
+  // Save the sanitized PDF
+  const sanitizedPdf = await pdfDoc.save();
+
+  return sanitizedPdf;
+}
+
+// Download sanitized PDF
+export async function downloadSanitizedPDF(file: File, newFileName?: string): Promise<void> {
+  const sanitizedPdf = await sanitizePDF(file);
+
+  // Create blob and download
+  const blob = new Blob([new Uint8Array(sanitizedPdf)], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+
+  // Generate filename
+  const originalName = file.name.replace(/\.pdf$/i, '');
+  link.download = newFileName || `${originalName}_sanitized.pdf`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 }

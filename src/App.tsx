@@ -17,6 +17,7 @@ import { MergePDFDialog } from './components/MergePDFDialog';
 import { LegalPages } from './components/LegalPages';
 import { AboutDialog } from './components/AboutDialog';
 import { MobileMenu } from './components/MobileMenu';
+import { MetadataPanel } from './components/MetadataPanel';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { exportPDF, downloadBlob } from './utils/pdfExport';
 import type { Tool } from './types/pdf';
@@ -62,6 +63,7 @@ function AppContent() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [showShortcutsPanel, setShowShortcutsPanel] = useState(false);
+  const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -228,6 +230,7 @@ function AppContent() {
         deletedPages: state.deletedPages,
         pageOrder: state.pageOrder,
         globalRotation: state.rotation,
+        metadataSanitized: state.metadataSanitized,
       });
 
       const baseName = state.fileName.replace(/\.pdf$/i, '');
@@ -304,6 +307,7 @@ function AppContent() {
           onShowTerms={() => setShowLegalPage('terms')}
           onShowAbout={() => setShowAboutDialog(true)}
           onPrint={handlePrint}
+          onShowMetadata={() => setShowMetadataPanel(true)}
         />
         <Toolbar
           isMobile={isMobile}
@@ -312,6 +316,7 @@ function AppContent() {
           visibleTools={visibleTools}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           onPrint={handlePrint}
+          onShowSearch={() => setShowSearchPanel(true)}
         />
         <div className="main-content">
           {showSidebar && (
@@ -380,6 +385,10 @@ function AppContent() {
         <KeyboardShortcutsPanel
           isOpen={showShortcutsPanel}
           onClose={() => setShowShortcutsPanel(false)}
+        />
+        <MetadataPanel
+          isOpen={showMetadataPanel}
+          onClose={() => setShowMetadataPanel(false)}
         />
         <PageExtractionDialog
           isOpen={showExtractDialog}

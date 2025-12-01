@@ -35,6 +35,7 @@ export interface PDFState {
   pageOrder: number[]; // Array of page numbers in display order
   isLoading: boolean;
   error: string | null;
+  metadataSanitized: boolean; // Flag to strip metadata on export
 }
 
 export type Tool =

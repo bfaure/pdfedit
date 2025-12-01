@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useState } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useState, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPDF, generateId } from '../utils/pdfUtils';
 import type { PDFState, Annotation, Tool, ViewerSettings, HistoryEntry, HistoryActionType } from '../types/pdf';
@@ -40,6 +40,7 @@ interface PDFContextValue {
   requestFitToPage: () => void;
   undo: () => void;
   redo: () => void;
+  setMetadataSanitized: (sanitized: boolean) => void;
   reset: () => void;
 }
 
@@ -58,6 +59,7 @@ type PDFAction =
   | { type: 'UPDATE_ANNOTATION'; payload: { id: string; updates: Partial<Annotation> } }
   | { type: 'DELETE_ANNOTATION'; payload: string }
   | { type: 'RESTORE_STATE'; payload: Partial<PDFState> }
+  | { type: 'SET_METADATA_SANITIZED'; payload: boolean }
   | { type: 'RESET' };
 
 const initialState: PDFState = {
@@ -73,6 +75,7 @@ const initialState: PDFState = {
   pageOrder: [],
   isLoading: false,
   error: null,
+  metadataSanitized: false,
 };
 
 const initialSettings: ViewerSettings = {
@@ -153,6 +156,8 @@ function pdfReducer(state: PDFState, action: PDFAction): PDFState {
         ...(payload.rotation !== undefined && { rotation: payload.rotation }),
       };
     }
+    case 'SET_METADATA_SANITIZED':
+      return { ...state, metadataSanitized: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -182,6 +187,7 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
 
   // Flag to indicate programmatic navigation (to prevent scroll detection interference)
   const [isProgrammaticNavigation, setIsProgrammaticNavigation] = useState(false);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper to create history entry
   const createHistoryEntry = useCallback((
@@ -247,11 +253,16 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
   // Navigate to page with programmatic flag set (for thumbnails, toolbar, etc.)
   // This prevents scroll detection from interfering during the navigation
   const navigateToPage = useCallback((page: number) => {
+    // Clear any pending timeout to prevent premature flag clearing on rapid keypresses
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
     setIsProgrammaticNavigation(true);
     dispatch({ type: 'SET_CURRENT_PAGE', payload: page });
     // Clear flag after a delay to allow scroll animation to complete
-    setTimeout(() => {
+    navigationTimeoutRef.current = setTimeout(() => {
       setIsProgrammaticNavigation(false);
+      navigationTimeoutRef.current = null;
     }, 800);
   }, []);
 
@@ -414,6 +425,10 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     setFitToPageRequest(prev => prev + 1);
   }, []);
 
+  const setMetadataSanitized = useCallback((sanitized: boolean) => {
+    dispatch({ type: 'SET_METADATA_SANITIZED', payload: sanitized });
+  }, []);
+
   const value: PDFContextValue = {
     state,
     settings,
@@ -444,6 +459,7 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     requestFitToPage,
     undo,
     redo,
+    setMetadataSanitized,
     reset,
   };
 

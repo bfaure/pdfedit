@@ -6,7 +6,7 @@ export function useKeyboardShortcuts() {
     state,
     canUndo,
     canRedo,
-    setCurrentPage,
+    navigateToPage,
     setScale,
     setRotation,
     setTool,
@@ -27,16 +27,16 @@ export function useKeyboardShortcuts() {
       // Page navigation
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
-        setCurrentPage(state.currentPage - 1);
+        navigateToPage(state.currentPage - 1);
       } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         e.preventDefault();
-        setCurrentPage(state.currentPage + 1);
+        navigateToPage(state.currentPage + 1);
       } else if (e.key === 'Home') {
         e.preventDefault();
-        setCurrentPage(1);
+        navigateToPage(1);
       } else if (e.key === 'End') {
         e.preventDefault();
-        setCurrentPage(state.numPages);
+        navigateToPage(state.numPages);
       }
 
       // Zoom controls and undo/redo
@@ -103,7 +103,7 @@ export function useKeyboardShortcuts() {
         setTool('select');
       }
     },
-    [state, canUndo, canRedo, setCurrentPage, setScale, setRotation, setTool, undo, redo]
+    [state, canUndo, canRedo, navigateToPage, setScale, setRotation, setTool, undo, redo]
   );
 
   useEffect(() => {

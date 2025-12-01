@@ -237,3 +237,70 @@
   background: var(--error-bg);
   border-radius: var(--radius-sm);
 }
+
+/* Shapes dropdown */
+.shapes-dropdown {
+  position: relative;
+}
+
+.shapes-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.shapes-btn .dropdown-arrow {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.shapes-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 120px;
+  background: var(--panel-bg, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .shapes-menu {
+  background: var(--panel-bg, #353D52);
+}
+
+.shapes-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.shapes-menu-item:hover {
+  background: var(--hover-bg);
+}
+
+.shapes-menu-item.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+.shapes-menu-item .shape-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.shapes-menu-item .shape-label {
+  flex: 1;
+}

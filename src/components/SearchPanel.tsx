@@ -14,7 +14,7 @@ interface SearchPanelProps {
 }
 
 export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
-  const { pdfDocument, setCurrentPage, setSearchHighlight } = usePDF();
+  const { pdfDocument, navigateToPage, setSearchHighlight } = usePDF();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -54,7 +54,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
 
       // Navigate to first result
       if (searchResults.length > 0) {
-        setCurrentPage(searchResults[0].pageNumber);
+        navigateToPage(searchResults[0].pageNumber);
         setSearchHighlight({
           pageNumber: searchResults[0].pageNumber,
           term: searchTerm.trim(),
@@ -66,7 +66,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     } finally {
       setIsSearching(false);
     }
-  }, [pdfDocument, searchTerm, caseSensitive, setCurrentPage]);
+  }, [pdfDocument, searchTerm, caseSensitive, navigateToPage]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -93,7 +93,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     let count = 0;
     for (const result of results) {
       if (count + result.matches.length > nextIndex) {
-        setCurrentPage(result.pageNumber);
+        navigateToPage(result.pageNumber);
         setSearchHighlight({
           pageNumber: result.pageNumber,
           term: searchTerm.trim(),
@@ -103,7 +103,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
       }
       count += result.matches.length;
     }
-  }, [results, currentResultIndex, searchTerm, setCurrentPage, setSearchHighlight]);
+  }, [results, currentResultIndex, searchTerm, navigateToPage, setSearchHighlight]);
 
   const navigatePrev = useCallback(() => {
     if (results.length === 0) return;
@@ -116,7 +116,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     let count = 0;
     for (const result of results) {
       if (count + result.matches.length > prevIndex) {
-        setCurrentPage(result.pageNumber);
+        navigateToPage(result.pageNumber);
         setSearchHighlight({
           pageNumber: result.pageNumber,
           term: searchTerm.trim(),
@@ -126,10 +126,10 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
       }
       count += result.matches.length;
     }
-  }, [results, currentResultIndex, searchTerm, setCurrentPage, setSearchHighlight]);
+  }, [results, currentResultIndex, searchTerm, navigateToPage, setSearchHighlight]);
 
   const goToResult = useCallback((pageNumber: number, matchIndex: number) => {
-    setCurrentPage(pageNumber);
+    navigateToPage(pageNumber);
     setSearchHighlight({
       pageNumber,
       term: searchTerm.trim(),
@@ -146,7 +146,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
       globalIndex += result.matches.length;
     }
     setCurrentResultIndex(globalIndex);
-  }, [results, searchTerm, setCurrentPage, setSearchHighlight]);
+  }, [results, searchTerm, navigateToPage, setSearchHighlight]);
 
   const totalMatches = results.reduce((sum, r) => sum + r.matches.length, 0);
 

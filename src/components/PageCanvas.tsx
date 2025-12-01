@@ -703,8 +703,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     }
   }, []);
 
-  // Handle text input resize
-  const handleTextInputResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
+  // Handle text input resize (mouse and touch)
+  const handleTextInputResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent, handle: string) => {
     e.stopPropagation();
     e.preventDefault();
     setTextInputResizing(handle);
@@ -754,13 +754,11 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     setTextInputDragging(false);
   }, []);
 
-  // Use document-level event listeners for text input resize/drag to capture mouse outside container
+  // Use document-level event listeners for text input resize/drag to capture mouse/touch outside container
   useEffect(() => {
     if (!textInputResizing && !textInputDragging) return;
 
-    const handleDocumentMouseMove = (e: MouseEvent) => {
-      const coords = getCoordinates(e);
-
+    const handleMove = (coords: { x: number; y: number }) => {
       if (textInputResizing && textInputPosition) {
         let newX = textInputPosition.x;
         let newY = textInputPosition.y;
@@ -796,25 +794,40 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
       }
     };
 
-    const handleDocumentMouseUp = () => {
+    const handleDocumentMouseMove = (e: MouseEvent) => {
+      handleMove(getCoordinates(e));
+    };
+
+    const handleDocumentTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        e.preventDefault(); // Prevent scrolling while resizing
+        handleMove(getTouchCoordinates(e));
+      }
+    };
+
+    const handleDocumentEnd = () => {
       setTextInputResizing(null);
       setTextInputDragging(false);
     };
 
     document.addEventListener('mousemove', handleDocumentMouseMove);
-    document.addEventListener('mouseup', handleDocumentMouseUp);
+    document.addEventListener('mouseup', handleDocumentEnd);
+    document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false });
+    document.addEventListener('touchend', handleDocumentEnd);
 
     return () => {
       document.removeEventListener('mousemove', handleDocumentMouseMove);
-      document.removeEventListener('mouseup', handleDocumentMouseUp);
+      document.removeEventListener('mouseup', handleDocumentEnd);
+      document.removeEventListener('touchmove', handleDocumentTouchMove);
+      document.removeEventListener('touchend', handleDocumentEnd);
     };
-  }, [textInputResizing, textInputDragging, textInputPosition, textInputSize, textInputDragOffset, getCoordinates]);
+  }, [textInputResizing, textInputDragging, textInputPosition, textInputSize, textInputDragOffset, getCoordinates, getTouchCoordinates]);
 
-  const handleTextInputDragStart = useCallback((e: React.MouseEvent) => {
+  const handleTextInputDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     e.preventDefault();
 
-    const coords = getCoordinates(e);
+    const coords = 'touches' in e ? getTouchCoordinates(e) : getCoordinates(e);
     if (textInputPosition) {
       setTextInputDragging(true);
       setTextInputDragOffset({
@@ -822,7 +835,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
         y: coords.y - textInputPosition.y,
       });
     }
-  }, [getCoordinates, textInputPosition]);
+  }, [getCoordinates, getTouchCoordinates, textInputPosition]);
 
   const handleTextInputDragMove = useCallback((e: React.MouseEvent) => {
     if (!textInputDragging) return;
@@ -1059,6 +1072,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
             <div
               className="text-input-drag-handle"
               onMouseDown={handleTextInputDragStart}
+              onTouchStart={handleTextInputDragStart}
             />
             <textarea
               ref={textInputRef}
@@ -1084,6 +1098,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
                 key={handle}
                 className={`text-input-resize-handle ${handle}`}
                 onMouseDown={(e) => handleTextInputResizeStart(e, handle)}
+                onTouchStart={(e) => handleTextInputResizeStart(e, handle)}
               />
             ))}
             {/* Confirm button */}

@@ -16,6 +16,7 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
   const hasSetInitialScale = useRef(false);
   const isInitialMount = useRef(true);
   const currentPageRef = useRef(state.currentPage);
+  const isProgrammaticNavigationRef = useRef(isProgrammaticNavigation);
 
   // Pan tool state
   const [isPanning, setIsPanning] = useState(false);
@@ -120,44 +121,58 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
     }
   }, [state.currentPage, settings.continuousScroll]);
 
-  // Keep currentPageRef in sync
+  // Keep refs in sync
   useEffect(() => {
     currentPageRef.current = state.currentPage;
   }, [state.currentPage]);
 
+  useEffect(() => {
+    isProgrammaticNavigationRef.current = isProgrammaticNavigation;
+  }, [isProgrammaticNavigation]);
+
   // Track visible pages in continuous scroll mode (or print mode)
   const handleScroll = useCallback(() => {
     // Skip if we're programmatically navigating (prevents fighting with navigation)
-    if (!containerRef.current || isProgrammaticNavigation) return;
+    if (!containerRef.current || isProgrammaticNavigationRef.current) return;
     // Only track scroll when multiple pages are visible (continuous scroll or print mode)
     if (!settings.continuousScroll && !isPrinting) return;
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
-    let topMostPage = currentPageRef.current; // Use ref instead of state
-    let topMostOffset = Infinity;
+
+    // Find the page closest to the top of the viewport
+    let bestPage = currentPageRef.current;
+    let bestDistance = Infinity;
 
     pageRefs.current.forEach((el, pageNumber) => {
       // Check if element is still in the DOM
       if (!el.isConnected) return;
 
       const rect = el.getBoundingClientRect();
-      const isVisible =
-        rect.top < containerRect.bottom && rect.bottom > containerRect.top;
 
-      if (isVisible) {
-        const offset = Math.abs(rect.top - containerRect.top);
-        if (offset < topMostOffset) {
-          topMostOffset = offset;
-          topMostPage = pageNumber;
-        }
+      // Check if page is at least partially visible
+      const isVisible = rect.bottom > containerRect.top && rect.top < containerRect.bottom;
+      if (!isVisible) return;
+
+      // Distance from page top to container top (negative means page top is above container)
+      const distance = rect.top - containerRect.top;
+
+      // Prefer pages whose top is closest to (but not too far above) the container top
+      // Use absolute distance but penalize pages that are mostly scrolled past
+      const adjustedDistance = distance < -rect.height * 0.5
+        ? Infinity  // Page is more than half scrolled past, ignore it
+        : Math.abs(distance);
+
+      if (adjustedDistance < bestDistance) {
+        bestDistance = adjustedDistance;
+        bestPage = pageNumber;
       }
     });
 
-    if (topMostPage !== currentPageRef.current) {
-      setCurrentPage(topMostPage);
+    if (bestPage !== currentPageRef.current) {
+      setCurrentPage(bestPage);
     }
-  }, [settings.continuousScroll, isPrinting, setCurrentPage, isProgrammaticNavigation]);
+  }, [settings.continuousScroll, isPrinting, setCurrentPage]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -165,40 +180,44 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
     // Attach scroll listener when continuous scroll is enabled
     if (!settings.continuousScroll) return;
 
-    // Use IntersectionObserver for more reliable visibility detection
+    // Use IntersectionObserver to detect which page is most visible
     const observer = new IntersectionObserver(
-      (entries) => {
+      () => {
         // Skip if we're programmatically navigating
-        if (isProgrammaticNavigation) return;
+        if (isProgrammaticNavigationRef.current) return;
 
-        // Find the most visible page (highest intersection ratio near top)
-        let bestPage = currentPageRef.current;
-        let bestScore = -Infinity;
+        let mostVisiblePage = currentPageRef.current;
+        let highestRatio = 0;
 
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const pageNum = parseInt(entry.target.getAttribute('data-page') || '1', 10);
-            // Score based on intersection ratio and proximity to top
-            const rect = entry.boundingClientRect;
-            const containerRect = container.getBoundingClientRect();
-            const distanceFromTop = Math.abs(rect.top - containerRect.top);
-            // Higher score for more visible and closer to top
-            const score = entry.intersectionRatio * 1000 - distanceFromTop;
-            if (score > bestScore) {
-              bestScore = score;
-              bestPage = pageNum;
-            }
+        // Check all observed pages for the one with highest visibility
+        pageRefs.current.forEach((el, pageNumber) => {
+          if (!el.isConnected) return;
+          const rect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+
+          // Calculate how much of the page is visible
+          const visibleTop = Math.max(rect.top, containerRect.top);
+          const visibleBottom = Math.min(rect.bottom, containerRect.bottom);
+          const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+          const ratio = visibleHeight / rect.height;
+
+          // Prefer pages near the top of the viewport
+          const distanceFromTop = rect.top - containerRect.top;
+          const topBonus = distanceFromTop < 100 ? 0.5 : 0;
+
+          if (ratio + topBonus > highestRatio) {
+            highestRatio = ratio + topBonus;
+            mostVisiblePage = pageNumber;
           }
         });
 
-        if (bestPage !== currentPageRef.current) {
-          setCurrentPage(bestPage);
+        if (mostVisiblePage !== currentPageRef.current) {
+          setCurrentPage(mostVisiblePage);
         }
       },
       {
         root: container,
-        threshold: [0, 0.25, 0.5, 0.75, 1],
-        rootMargin: '0px',
+        threshold: [0.5], // Only fire when page crosses 50% visibility
       }
     );
 
@@ -207,14 +226,14 @@ export function PDFViewer({ isPrinting }: PDFViewerProps) {
       observer.observe(el);
     });
 
-    // Also keep scroll listener as backup
+    // Also add scroll listener as backup
     container.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       observer.disconnect();
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [handleScroll, settings.continuousScroll, setCurrentPage, pages.size, isProgrammaticNavigation]);
+  }, [handleScroll, settings.continuousScroll, setCurrentPage, pages.size]);
 
   // Clean up stale refs when rendered pages change
   useEffect(() => {
