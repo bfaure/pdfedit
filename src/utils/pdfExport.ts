@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
-import type { Annotation } from '../types/pdf';
+import type { Annotation, MetadataOverrides } from '../types/pdf';
 
 interface ExportOptions {
   originalFile: File;
@@ -8,11 +8,11 @@ interface ExportOptions {
   deletedPages: Set<number>;
   pageOrder: number[];
   globalRotation: number;
-  metadataSanitized?: boolean;
+  metadataOverrides?: MetadataOverrides;
 }
 
 export async function exportPDF(options: ExportOptions): Promise<Blob> {
-  const { originalFile, annotations, pageRotations, deletedPages, pageOrder, globalRotation, metadataSanitized } = options;
+  const { originalFile, annotations, pageRotations, deletedPages, pageOrder, globalRotation, metadataOverrides = {} } = options;
 
   // Load the original PDF
   const originalBytes = await originalFile.arrayBuffer();
@@ -188,12 +188,38 @@ export async function exportPDF(options: ExportOptions): Promise<Blob> {
             }
           }
           break;
+
+        case 'image':
+          if (annotation.content && annotation.width && annotation.height) {
+            try {
+              // Detect image type from data URL
+              const isJpeg = annotation.content.startsWith('data:image/jpeg') ||
+                            annotation.content.startsWith('data:image/jpg');
+              const imageData = annotation.content.split(',')[1];
+              const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+
+              const embeddedImage = isJpeg
+                ? await pdfDoc.embedJpg(imageBytes)
+                : await pdfDoc.embedPng(imageBytes);
+
+              page.drawImage(embeddedImage, {
+                x: annotation.x,
+                y: height - annotation.y - annotation.height,
+                width: annotation.width,
+                height: annotation.height,
+              });
+            } catch (error) {
+              console.error('Failed to embed image:', error);
+            }
+          }
+          break;
       }
     }
   }
 
-  // Strip metadata if requested
-  if (metadataSanitized) {
+  // Apply metadata overrides
+  if (metadataOverrides.stripAll) {
+    // Strip all metadata
     pdfDoc.setTitle('');
     pdfDoc.setAuthor('');
     pdfDoc.setSubject('');
@@ -202,6 +228,27 @@ export async function exportPDF(options: ExportOptions): Promise<Blob> {
     pdfDoc.setProducer('');
     pdfDoc.setCreationDate(new Date(0));
     pdfDoc.setModificationDate(new Date(0));
+  } else {
+    // Apply individual field overrides
+    if (metadataOverrides.title !== undefined) {
+      pdfDoc.setTitle(metadataOverrides.title === null ? '' : metadataOverrides.title);
+    }
+    if (metadataOverrides.author !== undefined) {
+      pdfDoc.setAuthor(metadataOverrides.author === null ? '' : metadataOverrides.author);
+    }
+    if (metadataOverrides.subject !== undefined) {
+      pdfDoc.setSubject(metadataOverrides.subject === null ? '' : metadataOverrides.subject);
+    }
+    if (metadataOverrides.keywords !== undefined) {
+      const keywords = metadataOverrides.keywords === null ? [] : metadataOverrides.keywords.split(',').map(k => k.trim()).filter(k => k);
+      pdfDoc.setKeywords(keywords);
+    }
+    if (metadataOverrides.creator !== undefined) {
+      pdfDoc.setCreator(metadataOverrides.creator === null ? '' : metadataOverrides.creator);
+    }
+    if (metadataOverrides.producer !== undefined) {
+      pdfDoc.setProducer(metadataOverrides.producer === null ? '' : metadataOverrides.producer);
+    }
   }
 
   // Save the modified PDF

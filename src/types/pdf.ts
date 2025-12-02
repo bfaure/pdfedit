@@ -7,7 +7,7 @@ export interface PDFPageInfo {
 
 export interface Annotation {
   id: string;
-  type: 'highlight' | 'text' | 'drawing' | 'rectangle' | 'circle' | 'arrow' | 'signature';
+  type: 'highlight' | 'text' | 'drawing' | 'rectangle' | 'circle' | 'arrow' | 'signature' | 'image';
   pageNumber: number;
   x: number;
   y: number;
@@ -20,6 +20,17 @@ export interface Annotation {
   backgroundColor?: string;
   backgroundOpacity?: number;
   points?: { x: number; y: number }[];
+}
+
+// Metadata field can be: original value (undefined), custom value (string), or removed (null)
+export interface MetadataOverrides {
+  title?: string | null;
+  author?: string | null;
+  subject?: string | null;
+  keywords?: string | null;
+  creator?: string | null;
+  producer?: string | null;
+  stripAll?: boolean; // When true, remove all metadata
 }
 
 export interface PDFState {
@@ -35,7 +46,7 @@ export interface PDFState {
   pageOrder: number[]; // Array of page numbers in display order
   isLoading: boolean;
   error: string | null;
-  metadataSanitized: boolean; // Flag to strip metadata on export
+  metadataOverrides: MetadataOverrides; // Individual metadata field overrides
 }
 
 export type Tool =
@@ -48,6 +59,7 @@ export type Tool =
   | 'circle'
   | 'arrow'
   | 'signature'
+  | 'image'
   | 'eraser';
 
 export interface ViewerSettings {

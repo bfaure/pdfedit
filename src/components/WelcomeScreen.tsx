@@ -149,7 +149,16 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
     <div className="welcome-screen">
       <div className="welcome-content">
         <div className="welcome-header">
-          <h1>PDFEdit.live</h1>
+          <img
+            src="/PDFEdit_Live_StyleGuide/PDFEdit_Horizontal_TPBG.svg"
+            alt="PDFEdit.live"
+            className="welcome-logo welcome-logo-light"
+          />
+          <img
+            src="/PDFEdit_Live_StyleGuide/PDFEdit_Horizontal_Dark.svg"
+            alt="PDFEdit.live"
+            className="welcome-logo welcome-logo-dark"
+          />
           <p className="welcome-subtitle">
             Edit PDFs securely in your browser. No uploads, no servers — your files never leave your device.
           </p>

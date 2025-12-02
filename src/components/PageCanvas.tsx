@@ -1629,6 +1629,42 @@ function AnnotationRenderer({
         />
       );
     }
+    case 'image': {
+      if (!annotation.content) return null;
+      const box = getScreenBoundingBox(annotation.x, annotation.y, annotation.width || 200, annotation.height || 150);
+      return (
+        <div
+          className={`annotation-element image-annotation ${isSelected ? 'selected' : ''}`}
+          style={{
+            position: 'absolute',
+            left: box.x * scale,
+            top: box.y * scale,
+            width: box.width * scale,
+            height: box.height * scale,
+            pointerEvents: isDraggable ? 'auto' : 'none',
+            cursor: isDraggable ? 'move' : 'default',
+            outline: isSelected ? '2px solid var(--accent-color, #02B7FF)' : 'none',
+            outlineOffset: 2,
+          }}
+          onMouseDown={onMouseDown}
+        >
+          <img
+            src={annotation.content}
+            alt="Image"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none',
+            }}
+            draggable={false}
+          />
+          {isSelected && onResizeStart && (
+            <ResizeHandles scale={scale} onResizeStart={onResizeStart} />
+          )}
+        </div>
+      );
+    }
     default:
       return null;
   }

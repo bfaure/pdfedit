@@ -23,7 +23,7 @@ import { exportPDF, downloadBlob } from './utils/pdfExport';
 import type { Tool } from './types/pdf';
 import './App.css';
 
-const DEFAULT_VISIBLE_TOOLS: Tool[] = ['select', 'pan', 'highlight', 'text', 'draw', 'rectangle', 'circle', 'arrow', 'signature', 'eraser'];
+const DEFAULT_VISIBLE_TOOLS: Tool[] = ['select', 'pan', 'highlight', 'text', 'draw', 'rectangle', 'circle', 'arrow', 'signature', 'image', 'eraser'];
 
 // Component shown when user navigates directly to /editor without a file
 function EditorEmptyState({ onOpenFile, isMobile }: { onOpenFile: () => void; isMobile: boolean }) {
@@ -57,6 +57,7 @@ function AppContent() {
   const location = useLocation();
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signaturePosition, setSignaturePosition] = useState<{ x: number; y: number; pageNumber: number } | null>(null);
+  const [imagePosition, setImagePosition] = useState<{ x: number; y: number; pageNumber: number } | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [visibleTools, setVisibleTools] = useState<Tool[]>(DEFAULT_VISIBLE_TOOLS);
@@ -64,6 +65,7 @@ function AppContent() {
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [showShortcutsPanel, setShowShortcutsPanel] = useState(false);
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+  const [highlightMetadataConcerns, setHighlightMetadataConcerns] = useState(false);
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -75,6 +77,7 @@ function AppContent() {
   const [isPrinting, setIsPrinting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcuts();
 
@@ -173,9 +176,9 @@ function AppContent() {
     setMobileSidebarOpen(prev => !prev);
   }, []);
 
-  // Handle click on PDF when signature tool is active
+  // Handle click on PDF when signature or image tool is active
   const handleViewerClick = useCallback((e: React.MouseEvent) => {
-    if (currentTool !== 'signature') return;
+    if (currentTool !== 'signature' && currentTool !== 'image') return;
 
     const target = e.target as HTMLElement;
     const pageWrapper = target.closest('.page-wrapper');
@@ -190,8 +193,13 @@ function AppContent() {
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
 
-    setSignaturePosition({ x, y, pageNumber });
-    setShowSignaturePad(true);
+    if (currentTool === 'signature') {
+      setSignaturePosition({ x, y, pageNumber });
+      setShowSignaturePad(true);
+    } else if (currentTool === 'image') {
+      setImagePosition({ x, y, pageNumber });
+      imageInputRef.current?.click();
+    }
   }, [currentTool, state.scale]);
 
   const handleSignatureSave = useCallback((dataUrl: string) => {
@@ -217,6 +225,57 @@ function AppContent() {
     setSignaturePosition(null);
   }, []);
 
+  // Handle image file selection
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !imagePosition) {
+      setImagePosition(null);
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        // Create an image to get natural dimensions
+        const img = new Image();
+        img.onload = () => {
+          // Calculate initial size - max 300px width/height, maintain aspect ratio
+          const maxSize = 300;
+          let width = img.naturalWidth;
+          let height = img.naturalHeight;
+
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height / width) * maxSize;
+              width = maxSize;
+            } else {
+              width = (width / height) * maxSize;
+              height = maxSize;
+            }
+          }
+
+          addAnnotation({
+            type: 'image',
+            pageNumber: imagePosition.pageNumber,
+            x: imagePosition.x,
+            y: imagePosition.y,
+            width,
+            height,
+            content: dataUrl,
+          });
+
+          setImagePosition(null);
+          setTool('select');
+        };
+        img.src = dataUrl;
+      }
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = '';
+  }, [imagePosition, addAnnotation, setTool]);
+
   // Mobile menu save handler
   const handleMobileSave = useCallback(async () => {
     if (!state.file) return;
@@ -230,7 +289,7 @@ function AppContent() {
         deletedPages: state.deletedPages,
         pageOrder: state.pageOrder,
         globalRotation: state.rotation,
-        metadataSanitized: state.metadataSanitized,
+        metadataOverrides: state.metadataOverrides,
       });
 
       const baseName = state.fileName.replace(/\.pdf$/i, '');
@@ -291,6 +350,13 @@ function AppContent() {
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{ display: 'none' }}
+        />
 
         <MenuBar
           onOpenFile={() => fileInputRef.current?.click()}
@@ -307,7 +373,10 @@ function AppContent() {
           onShowTerms={() => setShowLegalPage('terms')}
           onShowAbout={() => setShowAboutDialog(true)}
           onPrint={handlePrint}
-          onShowMetadata={() => setShowMetadataPanel(true)}
+          onShowMetadata={(highlight) => {
+            setHighlightMetadataConcerns(highlight || false);
+            setShowMetadataPanel(true);
+          }}
         />
         <Toolbar
           isMobile={isMobile}
@@ -388,7 +457,11 @@ function AppContent() {
         />
         <MetadataPanel
           isOpen={showMetadataPanel}
-          onClose={() => setShowMetadataPanel(false)}
+          onClose={() => {
+            setShowMetadataPanel(false);
+            setHighlightMetadataConcerns(false);
+          }}
+          highlightConcerns={highlightMetadataConcerns}
         />
         <PageExtractionDialog
           isOpen={showExtractDialog}

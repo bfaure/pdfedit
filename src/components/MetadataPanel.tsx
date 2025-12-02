@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePDF } from '../contexts/PDFContext';
+import type { MetadataOverrides } from '../types/pdf';
 import './MetadataPanel.css';
 
 interface PDFMetadata {
@@ -11,26 +12,81 @@ interface PDFMetadata {
   producer?: string;
   creationDate?: string;
   modDate?: string;
-  [key: string]: string | undefined;
+}
+
+interface EmbeddedScript {
+  trigger: string;
+  code: string;
 }
 
 interface MetadataPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  highlightConcerns?: boolean;
 }
 
-export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
-  const { pdfDocument, state, setMetadataSanitized } = usePDF();
-  const [metadata, setMetadata] = useState<PDFMetadata | null>(null);
-  const [customMetadata, setCustomMetadata] = useState<Record<string, string>>({});
+type MetadataFieldKey = 'title' | 'author' | 'subject' | 'keywords' | 'creator' | 'producer';
+
+const METADATA_FIELDS: { key: MetadataFieldKey; label: string }[] = [
+  { key: 'title', label: 'Title' },
+  { key: 'author', label: 'Author' },
+  { key: 'subject', label: 'Subject' },
+  { key: 'keywords', label: 'Keywords' },
+  { key: 'creator', label: 'Created With' },
+  { key: 'producer', label: 'PDF Producer' },
+];
+
+// Known software patterns that are NOT privacy concerns
+const KNOWN_SOFTWARE_PATTERNS = [
+  /pdf-lib/i, /adobe/i, /acrobat/i, /microsoft/i, /word/i, /excel/i,
+  /powerpoint/i, /libreoffice/i, /openoffice/i, /chrome/i, /chromium/i,
+  /firefox/i, /safari/i, /webkit/i, /macos/i, /windows/i, /quartz/i,
+  /preview/i, /pdftex/i, /latex/i, /ghostscript/i, /pdfcreator/i,
+  /nitro/i, /foxit/i, /itext/i, /google\s*docs/i, /tcpdf/i, /fpdf/i,
+  /wkhtmltopdf/i, /prince/i, /weasyprint/i, /reportlab/i, /pypdf/i,
+  /pdfkit/i, /puppeteer/i, /playwright/i, /dompdf/i, /mpdf/i, /prawn/i,
+  /pdfmake/i, /jspdf/i, /pdfsharp/i, /docx/i, /pages/i, /keynote/i,
+  /numbers/i, /skia/i, /cairo/i, /poppler/i, /mupdf/i, /xpdf/i,
+  /pdfsam/i, /smallpdf/i, /sejda/i, /scanner/i, /xerox/i, /canon/i,
+  /epson/i, /hp\s/i, /hewlett/i, /brother/i,
+];
+
+function isKnownSoftware(value: string): boolean {
+  return KNOWN_SOFTWARE_PATTERNS.some(pattern => pattern.test(value));
+}
+
+// Determine if a field should be flagged as a privacy concern
+function isPrivacyConcern(key: MetadataFieldKey, value: string | undefined): boolean {
+  if (!value || !value.trim()) return false;
+
+  // Author is always sensitive (could be a person's name)
+  if (key === 'author') return true;
+
+  // Creator and Producer are only sensitive if they don't match known software
+  if (key === 'creator' || key === 'producer') {
+    return !isKnownSoftware(value);
+  }
+
+  // Title, Subject, Keywords are never flagged
+  return false;
+}
+
+export function MetadataPanel({ isOpen, onClose, highlightConcerns = false }: MetadataPanelProps) {
+  const { pdfDocument, state, setMetadataOverrides } = usePDF();
+  const [originalMetadata, setOriginalMetadata] = useState<PDFMetadata>({});
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [embeddedScripts, setEmbeddedScripts] = useState<EmbeddedScript[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showConfirmSanitize, setShowConfirmSanitize] = useState(false);
+  const [expandedScripts, setExpandedScripts] = useState<Set<number>>(new Set());
+  const [showStripConfirm, setShowStripConfirm] = useState(false);
 
   // Load metadata when panel opens
   useEffect(() => {
     if (!isOpen || !pdfDocument) {
-      setMetadata(null);
-      setCustomMetadata({});
+      setOriginalMetadata({});
+      setEditedValues({});
+      setEmbeddedScripts([]);
+      setExpandedScripts(new Set());
       return;
     }
 
@@ -38,18 +94,10 @@ export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
       setIsLoading(true);
       try {
         const meta = await pdfDocument.getMetadata();
-
-        // Standard metadata fields
         const info = meta.info as Record<string, unknown>;
-        const standardMetadata: PDFMetadata = {};
 
-        // Map standard fields
-        const standardFields = [
-          'Title', 'Author', 'Subject', 'Keywords',
-          'Creator', 'Producer', 'CreationDate', 'ModDate'
-        ];
-
-        const fieldMapping: Record<string, string> = {
+        const metadata: PDFMetadata = {};
+        const fieldMapping: Record<string, keyof PDFMetadata> = {
           'Title': 'title',
           'Author': 'author',
           'Subject': 'subject',
@@ -60,31 +108,59 @@ export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
           'ModDate': 'modDate',
         };
 
-        for (const field of standardFields) {
-          if (info[field]) {
-            const mappedField = fieldMapping[field];
-            let value = info[field];
-
-            // Format dates
-            if (field === 'CreationDate' || field === 'ModDate') {
+        for (const [pdfKey, stateKey] of Object.entries(fieldMapping)) {
+          if (info[pdfKey]) {
+            let value = info[pdfKey];
+            if (pdfKey === 'CreationDate' || pdfKey === 'ModDate') {
               value = formatPDFDate(value as string);
             }
-
-            standardMetadata[mappedField] = String(value);
+            (metadata as Record<string, string>)[stateKey] = String(value);
           }
         }
 
-        setMetadata(standardMetadata);
+        setOriginalMetadata(metadata);
 
-        // Custom metadata (non-standard fields)
-        const custom: Record<string, string> = {};
-        for (const [key, value] of Object.entries(info)) {
-          if (!standardFields.includes(key) && value && typeof value === 'string') {
-            custom[key] = value;
+        // Initialize edited values from overrides or original
+        const edited: Record<string, string> = {};
+        for (const field of METADATA_FIELDS) {
+          const override = state.metadataOverrides[field.key];
+          if (override === null) {
+            edited[field.key] = ''; // Marked for removal
+          } else if (override !== undefined) {
+            edited[field.key] = override;
+          } else if (metadata[field.key]) {
+            edited[field.key] = metadata[field.key] || '';
+          } else {
+            edited[field.key] = '';
           }
         }
-        setCustomMetadata(custom);
+        setEditedValues(edited);
 
+        // Load embedded JavaScript
+        const scripts: EmbeddedScript[] = [];
+        try {
+          const jsActions = await pdfDocument.getJSActions();
+          if (jsActions) {
+            for (const [trigger, codeArray] of Object.entries(jsActions)) {
+              if (Array.isArray(codeArray)) {
+                for (const code of codeArray) {
+                  if (code && typeof code === 'string') {
+                    scripts.push({ trigger, code });
+                  }
+                }
+              }
+            }
+          }
+
+          const openAction = await pdfDocument.getOpenAction();
+          if (openAction && 'js' in openAction) {
+            scripts.push({ trigger: 'OpenAction', code: openAction.js as string });
+          }
+        } catch (jsError) {
+          console.error('Failed to load JavaScript actions:', jsError);
+        }
+
+        setEmbeddedScripts(scripts);
       } catch (error) {
         console.error('Failed to load metadata:', error);
       } finally {
@@ -93,29 +169,100 @@ export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
     };
 
     loadMetadata();
-  }, [isOpen, pdfDocument]);
+  }, [isOpen, pdfDocument, state.metadataOverrides]);
 
-  const handleSanitize = useCallback(() => {
-    setShowConfirmSanitize(false);
-    setMetadataSanitized(true);
-  }, [setMetadataSanitized]);
+  const handleFieldChange = useCallback((field: MetadataFieldKey, value: string) => {
+    setEditedValues(prev => ({ ...prev, [field]: value }));
+  }, []);
 
-  const handleUnsanitize = useCallback(() => {
-    setMetadataSanitized(false);
-  }, [setMetadataSanitized]);
+  const handleRemoveField = useCallback((field: MetadataFieldKey) => {
+    setEditedValues(prev => ({ ...prev, [field]: '' }));
+    // Mark as removed in overrides
+    const newOverrides: MetadataOverrides = { ...state.metadataOverrides, [field]: null };
+    setMetadataOverrides(newOverrides);
+  }, [state.metadataOverrides, setMetadataOverrides]);
+
+  const handleRestoreField = useCallback((field: MetadataFieldKey) => {
+    const originalValue = originalMetadata[field] || '';
+    setEditedValues(prev => ({ ...prev, [field]: originalValue }));
+    // Remove override
+    const newOverrides = { ...state.metadataOverrides };
+    delete newOverrides[field];
+    setMetadataOverrides(newOverrides);
+  }, [originalMetadata, state.metadataOverrides, setMetadataOverrides]);
+
+  const handleSaveField = useCallback((field: MetadataFieldKey) => {
+    const newValue = editedValues[field];
+    const originalValue = originalMetadata[field] || '';
+
+    if (newValue === originalValue) {
+      // No change, remove any override
+      const newOverrides = { ...state.metadataOverrides };
+      delete newOverrides[field];
+      setMetadataOverrides(newOverrides);
+    } else if (newValue === '') {
+      // Marked for removal
+      const newOverrides: MetadataOverrides = { ...state.metadataOverrides, [field]: null };
+      setMetadataOverrides(newOverrides);
+    } else {
+      // Custom value
+      const newOverrides: MetadataOverrides = { ...state.metadataOverrides, [field]: newValue };
+      setMetadataOverrides(newOverrides);
+    }
+  }, [editedValues, originalMetadata, state.metadataOverrides, setMetadataOverrides]);
+
+  const handleStripAll = useCallback(() => {
+    const newOverrides: MetadataOverrides = { stripAll: true };
+    setMetadataOverrides(newOverrides);
+    setShowStripConfirm(false);
+    // Clear all edited values
+    const cleared: Record<string, string> = {};
+    for (const field of METADATA_FIELDS) {
+      cleared[field.key] = '';
+    }
+    setEditedValues(cleared);
+  }, [setMetadataOverrides]);
+
+  const handleRestoreAll = useCallback(() => {
+    setMetadataOverrides({});
+    // Restore all original values
+    const restored: Record<string, string> = {};
+    for (const field of METADATA_FIELDS) {
+      restored[field.key] = originalMetadata[field.key] || '';
+    }
+    setEditedValues(restored);
+  }, [originalMetadata, setMetadataOverrides]);
+
+  const toggleScriptExpanded = useCallback((index: number) => {
+    setExpandedScripts(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
 
   if (!isOpen) return null;
 
-  const hasMetadata = metadata && (
-    Object.values(metadata).some(v => v) ||
-    Object.keys(customMetadata).length > 0
-  );
+  const isFieldRemoved = (field: MetadataFieldKey) =>
+    state.metadataOverrides.stripAll || state.metadataOverrides[field] === null;
+
+  const isFieldModified = (field: MetadataFieldKey) => {
+    if (state.metadataOverrides.stripAll) return true;
+    const override = state.metadataOverrides[field];
+    return override !== undefined;
+  };
+
+  const hasAnyChanges = Object.keys(state.metadataOverrides).length > 0;
 
   return (
     <div className="metadata-panel-overlay" onClick={onClose}>
-      <div className="metadata-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="metadata-panel metadata-panel-wide" onClick={(e) => e.stopPropagation()}>
         <div className="metadata-header">
-          <h2>PDF Metadata</h2>
+          <h2>Document Metadata</h2>
           <button className="metadata-close" onClick={onClose}>×</button>
         </div>
 
@@ -124,192 +271,194 @@ export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
             <div className="metadata-loading">Loading metadata...</div>
           ) : !pdfDocument ? (
             <div className="metadata-empty">No PDF loaded</div>
-          ) : state.metadataSanitized ? (
-            <>
-              <div className="metadata-sanitized-notice">
-                <div className="metadata-sanitized-icon">✓</div>
-                <h3>Metadata Marked for Removal</h3>
-                <p>
-                  All metadata will be stripped when you save the PDF.
-                  The exported file will not contain author names, creation dates,
-                  software information, or other identifying metadata.
-                </p>
-              </div>
-              <div className="metadata-file-info">
-                <div className="metadata-row">
-                  <span className="metadata-label">File Name:</span>
-                  <span className="metadata-value">{state.fileName || 'Unknown'}</span>
-                </div>
-                <div className="metadata-row">
-                  <span className="metadata-label">Pages:</span>
-                  <span className="metadata-value">{state.numPages}</span>
-                </div>
-              </div>
-            </>
           ) : (
             <>
-              <div className="metadata-file-info">
-                <div className="metadata-row">
-                  <span className="metadata-label">File Name:</span>
-                  <span className="metadata-value">{state.fileName || 'Unknown'}</span>
-                </div>
-                <div className="metadata-row">
-                  <span className="metadata-label">Pages:</span>
-                  <span className="metadata-value">{state.numPages}</span>
-                </div>
-              </div>
-
-              <div className="metadata-section">
-                <h3>Document Information</h3>
-                {metadata?.title && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Title:</span>
-                    <span className="metadata-value">{metadata.title}</span>
+              {/* Embedded Scripts Warning - Show FIRST if scripts exist */}
+              {embeddedScripts.length > 0 && (
+                <div className="metadata-section metadata-scripts">
+                  <h3>
+                    Embedded Scripts
+                    <span className="script-warning-badge">{embeddedScripts.length} found</span>
+                  </h3>
+                  <div className={`script-warning ${highlightConcerns ? 'highlight-concern' : ''}`}>
+                    <span className="warning-icon">⚠</span>
+                    <span>
+                      This PDF contains embedded JavaScript. While it won't execute on this site,
+                      it could run in other PDF readers.
+                    </span>
                   </div>
-                )}
-                {metadata?.author && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Author:</span>
-                    <span className="metadata-value">{metadata.author}</span>
-                  </div>
-                )}
-                {metadata?.subject && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Subject:</span>
-                    <span className="metadata-value">{metadata.subject}</span>
-                  </div>
-                )}
-                {metadata?.keywords && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Keywords:</span>
-                    <span className="metadata-value">{metadata.keywords}</span>
-                  </div>
-                )}
-                {!metadata?.title && !metadata?.author && !metadata?.subject && !metadata?.keywords && (
-                  <div className="metadata-empty-section">No document information</div>
-                )}
-              </div>
-
-              <div className="metadata-section">
-                <h3>Application Information</h3>
-                {metadata?.creator && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Created With:</span>
-                    <span className="metadata-value">{metadata.creator}</span>
-                  </div>
-                )}
-                {metadata?.producer && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">PDF Producer:</span>
-                    <span className="metadata-value">{metadata.producer}</span>
-                  </div>
-                )}
-                {!metadata?.creator && !metadata?.producer && (
-                  <div className="metadata-empty-section">No application information</div>
-                )}
-              </div>
-
-              <div className="metadata-section">
-                <h3>Dates</h3>
-                {metadata?.creationDate && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Created:</span>
-                    <span className="metadata-value">{metadata.creationDate}</span>
-                  </div>
-                )}
-                {metadata?.modDate && (
-                  <div className="metadata-row">
-                    <span className="metadata-label">Modified:</span>
-                    <span className="metadata-value">{metadata.modDate}</span>
-                  </div>
-                )}
-                {!metadata?.creationDate && !metadata?.modDate && (
-                  <div className="metadata-empty-section">No date information</div>
-                )}
-              </div>
-
-              {Object.keys(customMetadata).length > 0 && (
-                <div className="metadata-section">
-                  <h3>Custom Metadata</h3>
-                  {Object.entries(customMetadata).map(([key, value]) => (
-                    <div className="metadata-row" key={key}>
-                      <span className="metadata-label">{key}:</span>
-                      <span className="metadata-value">{value}</span>
+                  {embeddedScripts.map((script, index) => (
+                    <div key={index} className="embedded-script">
+                      <button
+                        className="script-header"
+                        onClick={() => toggleScriptExpanded(index)}
+                      >
+                        <span className="script-trigger">
+                          {script.trigger === 'Doc' ? 'Document Level' :
+                           script.trigger === 'OpenAction' ? 'On Document Open' :
+                           script.trigger}
+                        </span>
+                        <span className="script-toggle">
+                          {expandedScripts.has(index) ? '▼' : '▶'}
+                        </span>
+                      </button>
+                      {expandedScripts.has(index) && (
+                        <pre className="script-code">{script.code}</pre>
+                      )}
                     </div>
                   ))}
+                  <p className="script-note">
+                    Note: Embedded scripts cannot be removed from the PDF.
+                  </p>
                 </div>
               )}
 
-              <div className="metadata-section metadata-privacy">
-                <h3>Privacy Notice</h3>
-                <p className="metadata-warning">
-                  {hasMetadata ? (
-                    <>
-                      This PDF contains metadata that may reveal personal information
-                      such as author names, creation software, and timestamps.
-                      Consider sanitizing before sharing publicly.
-                    </>
-                  ) : (
-                    <>
-                      This PDF appears to have minimal metadata. However, there may still
-                      be hidden information embedded in the document structure.
-                    </>
-                  )}
-                </p>
+              {/* Strip All Banner */}
+              {state.metadataOverrides.stripAll && (
+                <div className="metadata-strip-banner">
+                  <span className="strip-icon">🛡️</span>
+                  <div className="strip-text">
+                    <strong>All metadata will be stripped</strong>
+                    <p>When you save the PDF, all metadata fields will be removed.</p>
+                  </div>
+                  <button className="metadata-btn metadata-btn-small" onClick={handleRestoreAll}>
+                    Restore All
+                  </button>
+                </div>
+              )}
+
+              {/* Editable Metadata Fields */}
+              <div className="metadata-section">
+                <h3>Metadata</h3>
+                <div className="metadata-fields-grid">
+                  {METADATA_FIELDS.map((field) => {
+                    const removed = isFieldRemoved(field.key);
+                    const modified = isFieldModified(field.key);
+                    const shouldHighlight = highlightConcerns && isPrivacyConcern(field.key, originalMetadata[field.key]);
+
+                    return (
+                      <div
+                        key={field.key}
+                        className={`metadata-field ${removed ? 'removed' : ''} ${modified ? 'modified' : ''} ${shouldHighlight ? 'highlight-concern' : ''}`}
+                      >
+                        <label className="field-label">
+                          {field.label}
+                          {shouldHighlight && <span className="concern-badge">Privacy</span>}
+                        </label>
+                        <div className="field-input-row">
+                          <input
+                            type="text"
+                            className="field-input"
+                            value={editedValues[field.key] || ''}
+                            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                            onBlur={() => handleSaveField(field.key)}
+                            placeholder={removed ? '(removed)' : '(empty)'}
+                            disabled={state.metadataOverrides.stripAll}
+                          />
+                          <div className="field-actions">
+                            {removed ? (
+                              <button
+                                className="field-btn restore"
+                                onClick={() => handleRestoreField(field.key)}
+                                title="Restore original value"
+                                disabled={state.metadataOverrides.stripAll}
+                              >
+                                ↺
+                              </button>
+                            ) : (
+                              <button
+                                className="field-btn remove"
+                                onClick={() => handleRemoveField(field.key)}
+                                title="Remove this field"
+                                disabled={state.metadataOverrides.stripAll}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {originalMetadata[field.key] && !removed && editedValues[field.key] !== originalMetadata[field.key] && (
+                          <div className="field-original">
+                            Original: {originalMetadata[field.key]}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Document Info - Compact footer */}
+              <div className="metadata-info-footer">
+                <span className="info-item">
+                  <strong>{state.numPages}</strong> pages
+                </span>
+                {originalMetadata.creationDate && !state.metadataOverrides.stripAll && (
+                  <span className="info-item">
+                    Created: {originalMetadata.creationDate}
+                  </span>
+                )}
+                {originalMetadata.modDate && !state.metadataOverrides.stripAll && (
+                  <span className="info-item">
+                    Modified: {originalMetadata.modDate}
+                  </span>
+                )}
+                {embeddedScripts.length === 0 && (
+                  <span className="info-item info-safe">✓ No scripts</span>
+                )}
               </div>
             </>
           )}
         </div>
 
         <div className="metadata-footer">
-          {state.metadataSanitized ? (
-            <>
-              <button
-                className="metadata-btn metadata-btn-secondary"
-                onClick={onClose}
-              >
-                Close
-              </button>
-              <button
-                className="metadata-btn metadata-btn-warning"
-                onClick={handleUnsanitize}
-              >
-                Restore Metadata
-              </button>
-            </>
-          ) : showConfirmSanitize ? (
+          {showStripConfirm ? (
             <div className="metadata-confirm">
-              <span>Strip all metadata when saving?</span>
+              <span>Remove all metadata when saving?</span>
               <div className="metadata-confirm-buttons">
                 <button
                   className="metadata-btn metadata-btn-cancel"
-                  onClick={() => setShowConfirmSanitize(false)}
+                  onClick={() => setShowStripConfirm(false)}
                 >
                   Cancel
                 </button>
                 <button
                   className="metadata-btn metadata-btn-danger"
-                  onClick={handleSanitize}
+                  onClick={handleStripAll}
                 >
-                  Strip Metadata
+                  Strip All
                 </button>
               </div>
             </div>
           ) : (
             <>
-              <button
-                className="metadata-btn metadata-btn-secondary"
-                onClick={onClose}
-              >
-                Close
-              </button>
-              <button
-                className="metadata-btn metadata-btn-primary"
-                onClick={() => setShowConfirmSanitize(true)}
-                disabled={!pdfDocument}
-              >
-                Sanitize PDF
-              </button>
+              <div className="footer-left">
+                {hasAnyChanges && (
+                  <button
+                    className="metadata-btn metadata-btn-secondary"
+                    onClick={handleRestoreAll}
+                  >
+                    Reset Changes
+                  </button>
+                )}
+              </div>
+              <div className="footer-right">
+                <button
+                  className="metadata-btn metadata-btn-secondary"
+                  onClick={onClose}
+                >
+                  Close
+                </button>
+                {!state.metadataOverrides.stripAll && (
+                  <button
+                    className="metadata-btn metadata-btn-danger"
+                    onClick={() => setShowStripConfirm(true)}
+                    disabled={!pdfDocument}
+                  >
+                    Strip All Metadata
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -322,13 +471,8 @@ export function MetadataPanel({ isOpen, onClose }: MetadataPanelProps) {
 function formatPDFDate(dateStr: string): string {
   if (!dateStr) return '';
 
-  // PDF dates are in format: D:YYYYMMDDHHmmSSOHH'mm'
-  // Example: D:20231215103045+05'30'
   try {
-    // Remove the D: prefix if present
     let cleaned = dateStr.replace(/^D:/, '');
-
-    // Extract components
     const year = cleaned.substring(0, 4);
     const month = cleaned.substring(4, 6);
     const day = cleaned.substring(6, 8);
@@ -336,7 +480,6 @@ function formatPDFDate(dateStr: string): string {
     const minute = cleaned.substring(10, 12) || '00';
     const second = cleaned.substring(12, 14) || '00';
 
-    // Create date object
     const date = new Date(
       parseInt(year),
       parseInt(month) - 1,
@@ -347,11 +490,11 @@ function formatPDFDate(dateStr: string): string {
     );
 
     if (isNaN(date.getTime())) {
-      return dateStr; // Return original if parsing fails
+      return dateStr;
     }
 
     return date.toLocaleString();
   } catch {
-    return dateStr; // Return original if parsing fails
+    return dateStr;
   }
 }

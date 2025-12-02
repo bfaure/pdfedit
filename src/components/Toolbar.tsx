@@ -88,6 +88,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
     { id: 'text', icon: 'T', label: 'Add Text' },
     { id: 'draw', icon: '✏', label: 'Draw' },
     { id: 'signature', icon: '✍', label: 'Signature' },
+    { id: 'image', icon: '🖼', label: 'Add Image' },
     { id: 'eraser', icon: eraserIcon, label: 'Eraser' },
   ];
 
@@ -104,30 +105,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
   const isShapeToolSelected = shapeTools.some(t => t.id === currentTool);
   const selectedShapeTool = shapeTools.find(t => t.id === currentTool);
 
-  // Show minimal toolbar when no file is loaded
-  if (!state.file) {
-    return (
-      <div className="toolbar">
-        <div className="toolbar-section">
-          {!isMobile && <span className="toolbar-hint">Use File menu to open a PDF</span>}
-        </div>
-        <div className="toolbar-spacer" />
-        <div className="toolbar-section">
-          <button
-            className="toolbar-btn"
-            onClick={() => {
-              const currentTheme = settings.theme;
-              const nextTheme = currentTheme === 'light' ? 'dark' : currentTheme === 'dark' ? 'system' : 'light';
-              updateSettings({ theme: nextTheme });
-            }}
-            title={`Theme: ${settings.theme}`}
-          >
-            {settings.theme === 'light' ? '☀️' : settings.theme === 'dark' ? '🌙' : '🖥️'}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const hasFile = !!state.file;
 
   return (
     <div className="toolbar">
@@ -136,6 +114,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className={`toolbar-btn mobile-menu-btn ${sidebarOpen ? 'active' : ''}`}
           onClick={onToggleSidebar}
+          disabled={!hasFile}
           title="Toggle Pages"
         >
           ☰
@@ -146,7 +125,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className="toolbar-btn"
           onClick={() => handlePageChange(-1)}
-          disabled={state.currentPage <= 1}
+          disabled={!hasFile || state.currentPage <= 1}
           title="Previous Page"
         >
           ◀
@@ -155,17 +134,19 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           <input
             type="number"
             min={1}
-            max={state.numPages}
-            value={state.currentPage}
+            max={state.numPages || 1}
+            value={hasFile ? state.currentPage : ''}
             onChange={handlePageInput}
             className="page-input"
+            disabled={!hasFile}
+            placeholder="-"
           />
-          <span>/ {state.numPages}</span>
+          <span>/ {hasFile ? state.numPages : '-'}</span>
         </div>
         <button
           className="toolbar-btn"
           onClick={() => handlePageChange(1)}
-          disabled={state.currentPage >= state.numPages}
+          disabled={!hasFile || state.currentPage >= state.numPages}
           title="Next Page"
         >
           ▶
@@ -178,7 +159,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className="toolbar-btn"
           onClick={handleZoomOut}
-          disabled={state.scale <= 0.25}
+          disabled={!hasFile || state.scale <= 0.25}
           title="Zoom Out"
         >
           −
@@ -187,6 +168,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           className="zoom-select"
           value={state.scale}
           onChange={(e) => setScale(parseFloat(e.target.value))}
+          disabled={!hasFile}
         >
           {ZOOM_LEVELS.map((level) => (
             <option key={level} value={level}>
@@ -197,7 +179,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className="toolbar-btn"
           onClick={handleZoomIn}
-          disabled={state.scale >= 5}
+          disabled={!hasFile || state.scale >= 5}
           title="Zoom In"
         >
           +
@@ -216,6 +198,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
                 className={`toolbar-btn tool-btn ${currentTool === tool.id ? 'active' : ''}`}
                 onClick={() => setTool(tool.id)}
                 title={tool.label}
+                disabled={!hasFile}
               >
                 {tool.icon}
               </button>
@@ -228,11 +211,12 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
                   className={`toolbar-btn tool-btn shapes-btn ${isShapeToolSelected ? 'active' : ''}`}
                   onClick={() => setShapesOpen(!shapesOpen)}
                   title="Shapes"
+                  disabled={!hasFile}
                 >
                   {selectedShapeTool ? selectedShapeTool.icon : '⬡'}
                   <span className="dropdown-arrow">▾</span>
                 </button>
-                {shapesOpen && (
+                {shapesOpen && hasFile && (
                   <div className="shapes-menu">
                     {shapes.map((shape) => (
                       <button
@@ -261,7 +245,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className="toolbar-btn"
           onClick={undo}
-          disabled={!canUndo}
+          disabled={!hasFile || !canUndo}
           title="Undo (Ctrl+Z)"
         >
           ↩
@@ -269,7 +253,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         <button
           className="toolbar-btn"
           onClick={redo}
-          disabled={!canRedo}
+          disabled={!hasFile || !canRedo}
           title="Redo (Ctrl+Y)"
         >
           ↪
@@ -283,6 +267,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           className={`toolbar-btn ${settings.showThumbnails ? 'active' : ''}`}
           onClick={() => updateSettings({ showThumbnails: !settings.showThumbnails })}
           title="Toggle Thumbnails"
+          disabled={!hasFile}
         >
           ▤
         </button>
@@ -290,6 +275,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           className={`toolbar-btn ${settings.continuousScroll ? 'active' : ''}`}
           onClick={() => updateSettings({ continuousScroll: !settings.continuousScroll })}
           title="Toggle Continuous Scroll"
+          disabled={!hasFile}
         >
           📜
         </button>
@@ -297,6 +283,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           className="toolbar-btn"
           onClick={onPrint}
           title="Print"
+          disabled={!hasFile}
         >
           🖨️
         </button>
@@ -304,6 +291,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           className="toolbar-btn"
           onClick={onShowSearch}
           title="Search (Ctrl+F)"
+          disabled={!hasFile}
         >
           🔍
         </button>

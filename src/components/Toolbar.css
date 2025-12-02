@@ -8,6 +8,8 @@
   min-height: 48px;
   flex-shrink: 0;
   flex-wrap: wrap;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Tablet adjustments */

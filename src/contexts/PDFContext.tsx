@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useState, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPDF, generateId } from '../utils/pdfUtils';
-import type { PDFState, Annotation, Tool, ViewerSettings, HistoryEntry, HistoryActionType } from '../types/pdf';
+import type { PDFState, Annotation, Tool, ViewerSettings, HistoryEntry, HistoryActionType, MetadataOverrides } from '../types/pdf';
 
 export interface SearchHighlight {
   pageNumber: number;
@@ -40,7 +40,7 @@ interface PDFContextValue {
   requestFitToPage: () => void;
   undo: () => void;
   redo: () => void;
-  setMetadataSanitized: (sanitized: boolean) => void;
+  setMetadataOverrides: (overrides: MetadataOverrides) => void;
   reset: () => void;
 }
 
@@ -59,7 +59,7 @@ type PDFAction =
   | { type: 'UPDATE_ANNOTATION'; payload: { id: string; updates: Partial<Annotation> } }
   | { type: 'DELETE_ANNOTATION'; payload: string }
   | { type: 'RESTORE_STATE'; payload: Partial<PDFState> }
-  | { type: 'SET_METADATA_SANITIZED'; payload: boolean }
+  | { type: 'SET_METADATA_OVERRIDES'; payload: MetadataOverrides }
   | { type: 'RESET' };
 
 const initialState: PDFState = {
@@ -75,7 +75,7 @@ const initialState: PDFState = {
   pageOrder: [],
   isLoading: false,
   error: null,
-  metadataSanitized: false,
+  metadataOverrides: {},
 };
 
 const initialSettings: ViewerSettings = {
@@ -156,8 +156,8 @@ function pdfReducer(state: PDFState, action: PDFAction): PDFState {
         ...(payload.rotation !== undefined && { rotation: payload.rotation }),
       };
     }
-    case 'SET_METADATA_SANITIZED':
-      return { ...state, metadataSanitized: action.payload };
+    case 'SET_METADATA_OVERRIDES':
+      return { ...state, metadataOverrides: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -425,8 +425,8 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     setFitToPageRequest(prev => prev + 1);
   }, []);
 
-  const setMetadataSanitized = useCallback((sanitized: boolean) => {
-    dispatch({ type: 'SET_METADATA_SANITIZED', payload: sanitized });
+  const setMetadataOverrides = useCallback((overrides: MetadataOverrides) => {
+    dispatch({ type: 'SET_METADATA_OVERRIDES', payload: overrides });
   }, []);
 
   const value: PDFContextValue = {
@@ -459,7 +459,7 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     requestFitToPage,
     undo,
     redo,
-    setMetadataSanitized,
+    setMetadataOverrides,
     reset,
   };
 

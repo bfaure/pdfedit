@@ -19,7 +19,7 @@ interface MenuBarProps {
   onShowTerms: () => void;
   onShowAbout: () => void;
   onPrint: () => void;
-  onShowMetadata: () => void;
+  onShowMetadata: (highlightConcerns?: boolean) => void;
 }
 
 interface MenuItem {
@@ -30,6 +30,7 @@ interface MenuItem {
   divider?: boolean;
   checked?: boolean;
   submenu?: MenuItem[];
+  warning?: boolean;
 }
 
 const ALL_TOOLS: { id: Tool; label: string }[] = [
@@ -42,13 +43,90 @@ const ALL_TOOLS: { id: Tool; label: string }[] = [
   { id: 'circle', label: 'Circle' },
   { id: 'arrow', label: 'Arrow' },
   { id: 'signature', label: 'Signature' },
+  { id: 'image', label: 'Add Image' },
   { id: 'eraser', label: 'Eraser' },
 ];
+
+interface PrivacyConcerns {
+  hasSensitiveMetadata: boolean;
+  hasEmbeddedScripts: boolean;
+  details: string[];
+}
+
+// Known software patterns that are NOT privacy concerns
+const KNOWN_SOFTWARE_PATTERNS = [
+  /pdf-lib/i,
+  /adobe/i,
+  /acrobat/i,
+  /microsoft/i,
+  /word/i,
+  /excel/i,
+  /powerpoint/i,
+  /libreoffice/i,
+  /openoffice/i,
+  /chrome/i,
+  /chromium/i,
+  /firefox/i,
+  /safari/i,
+  /webkit/i,
+  /macos/i,
+  /windows/i,
+  /quartz/i,
+  /preview/i,
+  /pdftex/i,
+  /latex/i,
+  /ghostscript/i,
+  /pdfcreator/i,
+  /nitro/i,
+  /foxit/i,
+  /itext/i,
+  /google\s*docs/i,
+  /tcpdf/i,
+  /fpdf/i,
+  /wkhtmltopdf/i,
+  /prince/i,
+  /weasyprint/i,
+  /reportlab/i,
+  /pypdf/i,
+  /pdfkit/i,
+  /puppeteer/i,
+  /playwright/i,
+  /dompdf/i,
+  /mpdf/i,
+  /prawn/i,
+  /pdfmake/i,
+  /jspdf/i,
+  /pdfsharp/i,
+  /docx/i,
+  /pages/i,
+  /keynote/i,
+  /numbers/i,
+  /skia/i,
+  /cairo/i,
+  /poppler/i,
+  /mupdf/i,
+  /xpdf/i,
+  /pdfsam/i,
+  /smallpdf/i,
+  /sejda/i,
+  /scanner/i,
+  /xerox/i,
+  /canon/i,
+  /epson/i,
+  /hp\s/i,
+  /hewlett/i,
+  /brother/i,
+];
+
+function isKnownSoftware(value: string): boolean {
+  return KNOWN_SOFTWARE_PATTERNS.some(pattern => pattern.test(value));
+}
 
 export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout, onPrint, onShowMetadata }: MenuBarProps) {
   const {
     state,
     settings,
+    pdfDocument,
     canUndo,
     canRedo,
     setScale,
@@ -65,9 +143,85 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [privacyConcerns, setPrivacyConcerns] = useState<PrivacyConcerns | null>(null);
   const menuBarRef = useRef<HTMLDivElement>(null);
 
   const isCurrentPageDeleted = state.deletedPages.has(state.currentPage);
+
+  // Check for privacy concerns when PDF is loaded
+  useEffect(() => {
+    if (!pdfDocument) {
+      setPrivacyConcerns(null);
+      return;
+    }
+
+    const checkPrivacyConcerns = async () => {
+      const concerns: PrivacyConcerns = {
+        hasSensitiveMetadata: false,
+        hasEmbeddedScripts: false,
+        details: [],
+      };
+
+      try {
+        // Check metadata
+        const meta = await pdfDocument.getMetadata();
+        const info = meta.info as Record<string, unknown>;
+
+        // Author is always sensitive if present (could be a person's name)
+        const author = info['Author'];
+        if (author && typeof author === 'string' && author.trim()) {
+          concerns.hasSensitiveMetadata = true;
+          concerns.details.push('Contains author information');
+        }
+
+        // Creator and Producer are only sensitive if they don't match known software
+        // (these fields usually contain software names like "Adobe Acrobat" or "pdf-lib")
+        const creator = info['Creator'];
+        if (creator && typeof creator === 'string' && creator.trim() && !isKnownSoftware(creator)) {
+          concerns.hasSensitiveMetadata = true;
+          concerns.details.push('Contains unusual creator information');
+        }
+
+        const producer = info['Producer'];
+        if (producer && typeof producer === 'string' && producer.trim() && !isKnownSoftware(producer)) {
+          concerns.hasSensitiveMetadata = true;
+          concerns.details.push('Contains unusual producer information');
+        }
+
+        // Check for JavaScript
+        try {
+          const jsActions = await pdfDocument.getJSActions();
+          if (jsActions && Object.keys(jsActions).length > 0) {
+            concerns.hasEmbeddedScripts = true;
+            concerns.details.push('Contains embedded JavaScript');
+          }
+
+          const openAction = await pdfDocument.getOpenAction();
+          if (openAction && 'js' in openAction) {
+            concerns.hasEmbeddedScripts = true;
+            if (!concerns.details.includes('Contains embedded JavaScript')) {
+              concerns.details.push('Contains embedded JavaScript');
+            }
+          }
+        } catch (jsError) {
+          console.error('Error checking JS actions:', jsError);
+        }
+
+      } catch (error) {
+        console.error('Error checking privacy concerns:', error);
+      }
+
+      if (concerns.hasSensitiveMetadata || concerns.hasEmbeddedScripts) {
+        setPrivacyConcerns(concerns);
+      } else {
+        setPrivacyConcerns(null);
+      }
+    };
+
+    checkPrivacyConcerns();
+  }, [pdfDocument]);
+
+  const hasPrivacyConcerns = privacyConcerns !== null;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -94,7 +248,7 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
         deletedPages: state.deletedPages,
         pageOrder: state.pageOrder,
         globalRotation: state.rotation,
-        metadataSanitized: state.metadataSanitized,
+        metadataOverrides: state.metadataOverrides,
       });
 
       const baseName = state.fileName.replace(/\.pdf$/i, '');
@@ -161,7 +315,7 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
     { label: 'Rotate All Clockwise', action: () => setRotation(state.rotation + 90), shortcut: 'R', disabled: !state.file },
     { label: 'Rotate All Counter-clockwise', action: () => setRotation(state.rotation - 90), shortcut: 'Shift+R', disabled: !state.file },
     { label: '', divider: true },
-    { label: 'Document Metadata...', action: onShowMetadata, disabled: !state.file },
+    { label: 'Document Metadata...', action: () => onShowMetadata(hasPrivacyConcerns), disabled: !state.file, warning: hasPrivacyConcerns },
   ];
 
   const viewMenu: MenuItem[] = [
@@ -239,12 +393,15 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
         return (
           <button
             key={index}
-            className={`menu-item ${item.disabled ? 'disabled' : ''} ${item.checked ? 'checked' : ''}`}
+            className={`menu-item ${item.disabled ? 'disabled' : ''} ${item.checked ? 'checked' : ''} ${item.warning ? 'has-warning' : ''}`}
             onClick={() => !item.disabled && handleItemClick(item.action)}
             disabled={item.disabled}
           >
             <span className="menu-item-check">{item.checked ? '✓' : ''}</span>
-            <span className="menu-item-label">{item.label}</span>
+            <span className="menu-item-label">
+              {item.label}
+              {item.warning && <span className="menu-item-warning-dot" />}
+            </span>
             {item.shortcut && <span className="menu-item-shortcut">{item.shortcut}</span>}
           </button>
         );
@@ -253,11 +410,11 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
   );
 
   const menus = [
-    { name: 'File', items: fileMenu },
-    { name: 'Edit', items: editMenu },
-    { name: 'View', items: viewMenu },
-    { name: 'Tools', items: toolsMenu },
-    { name: 'Help', items: helpMenu },
+    { name: 'File', items: fileMenu, warning: false },
+    { name: 'Edit', items: editMenu, warning: hasPrivacyConcerns },
+    { name: 'View', items: viewMenu, warning: false },
+    { name: 'Tools', items: toolsMenu, warning: false },
+    { name: 'Help', items: helpMenu, warning: false },
   ];
 
   return (
@@ -265,11 +422,12 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
       {menus.map((menu) => (
         <div key={menu.name} className="menu-container">
           <button
-            className={`menu-button ${activeMenu === menu.name ? 'active' : ''}`}
+            className={`menu-button ${activeMenu === menu.name ? 'active' : ''} ${menu.warning ? 'has-warning' : ''}`}
             onClick={() => handleMenuClick(menu.name)}
             onMouseEnter={() => activeMenu && setActiveMenu(menu.name)}
           >
             {menu.name}
+            {menu.warning && <span className="menu-button-warning-dot" />}
           </button>
           {activeMenu === menu.name && renderMenu(menu.items)}
         </div>

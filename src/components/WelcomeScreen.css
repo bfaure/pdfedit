@@ -18,12 +18,41 @@
   margin-bottom: 40px;
 }
 
-.welcome-header h1 {
-  font-size: 3.25rem;
-  font-weight: 700;
-  margin: 0 0 16px 0;
-  color: var(--text-color);
-  letter-spacing: -0.5px;
+.welcome-logo {
+  height: 120px;
+  width: auto;
+  margin-bottom: 20px;
+}
+
+/* Light mode: show light logo, hide dark logo */
+.welcome-logo-light {
+  display: inline-block;
+}
+
+.welcome-logo-dark {
+  display: none;
+}
+
+/* Dark mode: show dark logo, hide light logo */
+.theme-dark .welcome-logo-light,
+[data-theme="dark"] .welcome-logo-light {
+  display: none;
+}
+
+.theme-dark .welcome-logo-dark,
+[data-theme="dark"] .welcome-logo-dark {
+  display: inline-block;
+}
+
+/* System theme dark mode */
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) .welcome-logo-light {
+    display: none;
+  }
+
+  :root:not(.theme-light) .welcome-logo-dark {
+    display: inline-block;
+  }
 }
 
 .welcome-subtitle {
