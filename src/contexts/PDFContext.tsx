@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useState, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPDF, generateId } from '../utils/pdfUtils';
-import type { PDFState, Annotation, Tool, ViewerSettings, HistoryEntry, HistoryActionType, MetadataOverrides } from '../types/pdf';
+import type { PDFState, Annotation, Tool, ViewerSettings, ToolSettings, HistoryEntry, HistoryActionType, MetadataOverrides } from '../types/pdf';
 
 export interface SearchHighlight {
   pageNumber: number;
@@ -12,6 +12,7 @@ export interface SearchHighlight {
 interface PDFContextValue {
   state: PDFState;
   settings: ViewerSettings;
+  toolSettings: ToolSettings;
   pdfDocument: PDFDocumentProxy | null;
   currentTool: Tool;
   canUndo: boolean;
@@ -35,11 +36,14 @@ interface PDFContextValue {
   deleteAnnotation: (id: string) => void;
   setTool: (tool: Tool) => void;
   updateSettings: (settings: Partial<ViewerSettings>) => void;
+  updateToolSettings: (settings: Partial<ToolSettings>) => void;
   setSearchHighlight: (highlight: SearchHighlight | null) => void;
   fitToPageRequest: number;
   requestFitToPage: () => void;
   undo: () => void;
   redo: () => void;
+  jumpToHistory: (targetIndex: number) => void;
+  clearHistory: () => void;
   setMetadataOverrides: (overrides: MetadataOverrides) => void;
   reset: () => void;
 }
@@ -83,6 +87,14 @@ const initialSettings: ViewerSettings = {
   showAnnotations: true,
   continuousScroll: true,
   theme: 'system',
+};
+
+const initialToolSettings: ToolSettings = {
+  penColor: '#000000',
+  penWidth: 2,
+  highlightColor: '#ffff00',
+  highlightOpacity: 0.4,
+  shapeColor: '#ff0000',
 };
 
 function pdfReducer(state: PDFState, action: PDFAction): PDFState {
@@ -170,6 +182,7 @@ const PDFContext = createContext<PDFContextValue | null>(null);
 export function PDFProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(pdfReducer, initialState);
   const [settings, setSettings] = useState<ViewerSettings>(initialSettings);
+  const [toolSettings, setToolSettings] = useState<ToolSettings>(initialToolSettings);
   const [currentTool, setCurrentTool] = useState<Tool>('select');
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
 
@@ -402,12 +415,37 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     setHistoryIndex(prev => prev + 1);
   }, [historyIndex, history]);
 
+  const jumpToHistory = useCallback((targetIndex: number) => {
+    if (targetIndex === historyIndex) return;
+    if (targetIndex < -1 || targetIndex >= history.length) return;
+
+    if (targetIndex === -1) {
+      // Jump to initial state: apply undoData of the first entry
+      const entry = history[0];
+      dispatch({ type: 'RESTORE_STATE', payload: entry.undoData });
+    } else {
+      // Apply redoData of the target entry to restore that state
+      const entry = history[targetIndex];
+      dispatch({ type: 'RESTORE_STATE', payload: entry.redoData });
+    }
+    setHistoryIndex(targetIndex);
+  }, [historyIndex, history]);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    setHistoryIndex(-1);
+  }, []);
+
   const setTool = useCallback((tool: Tool) => {
     setCurrentTool(tool);
   }, []);
 
   const updateSettings = useCallback((newSettings: Partial<ViewerSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+  }, []);
+
+  const updateToolSettings = useCallback((newSettings: Partial<ToolSettings>) => {
+    setToolSettings((prev) => ({ ...prev, ...newSettings }));
   }, []);
 
   const reset = useCallback(() => {
@@ -432,6 +470,7 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
   const value: PDFContextValue = {
     state,
     settings,
+    toolSettings,
     pdfDocument,
     currentTool,
     canUndo,
@@ -453,12 +492,15 @@ export function PDFProvider({ children }: { children: React.ReactNode }) {
     deleteAnnotation,
     setTool,
     updateSettings,
+    updateToolSettings,
     searchHighlight,
     setSearchHighlight,
     fitToPageRequest,
     requestFitToPage,
     undo,
     redo,
+    jumpToHistory,
+    clearHistory,
     setMetadataOverrides,
     reset,
   };

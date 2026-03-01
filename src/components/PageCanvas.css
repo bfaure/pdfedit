@@ -524,3 +524,40 @@
     height: 24px;
   }
 }
+
+/* Annotation action buttons (delete, duplicate) */
+.annotation-actions {
+  position: absolute;
+  top: -32px;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.annotation-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e1e8ed);
+  background: var(--panel-bg, #fff);
+  color: var(--text-color, #1a2237);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  padding: 0;
+}
+
+.annotation-action-btn:hover {
+  background: var(--hover-bg, #e1e8ed);
+}
+
+.annotation-action-btn.delete:hover {
+  background: var(--error-bg, rgba(239, 68, 68, 0.1));
+  color: var(--error-color, #ef4444);
+  border-color: var(--error-color, #ef4444);
+}

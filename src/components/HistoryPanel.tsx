@@ -17,14 +17,35 @@ const ACTION_ICONS: Record<string, string> = {
   rotate_all: '↻',
 };
 
+const ACTION_LABELS: Record<string, string> = {
+  add_annotation: 'Added',
+  update_annotation: 'Modified',
+  delete_annotation: 'Removed',
+  rotate_page: 'Rotated',
+  delete_page: 'Deleted',
+  restore_page: 'Restored',
+  reorder_pages: 'Reordered',
+  rotate_all: 'Rotated All',
+};
+
 export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
-  const { history, historyIndex, undo, redo, canUndo, canRedo } = usePDF();
+  const { history, historyIndex, undo, redo, canUndo, canRedo, jumpToHistory, clearHistory } = usePDF();
 
   if (!isOpen) return null;
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const handleJump = (targetIndex: number) => {
+    if (targetIndex !== historyIndex) {
+      jumpToHistory(targetIndex);
+    }
+  };
+
+  const handleClear = () => {
+    clearHistory();
   };
 
   return (
@@ -52,6 +73,15 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
           >
             ↪ Redo
           </button>
+          {history.length > 0 && (
+            <button
+              className="history-action-btn history-clear-btn"
+              onClick={handleClear}
+              title="Clear all history"
+            >
+              ✕ Clear
+            </button>
+          )}
         </div>
 
         <div className="history-list">
@@ -63,14 +93,6 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
             </div>
           ) : (
             <>
-              {/* Current state indicator */}
-              {historyIndex === history.length - 1 && (
-                <div className="history-item current-state">
-                  <span className="history-icon">●</span>
-                  <span className="history-description">Current State</span>
-                </div>
-              )}
-
               {/* History entries in reverse order (newest first) */}
               {[...history].reverse().map((entry, reverseIdx) => {
                 const idx = history.length - 1 - reverseIdx;
@@ -81,11 +103,13 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
                 return (
                   <div
                     key={entry.id}
-                    className={`history-item ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''} ${isFuture ? 'future' : ''}`}
-                    title={isFuture ? 'Redo to reach this state' : isPast ? 'Undo to return to this state' : 'Current position'}
+                    className={`history-item clickable ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''} ${isFuture ? 'future' : ''}`}
+                    onClick={() => handleJump(idx)}
+                    title={isCurrent ? 'Current state' : `Click to jump to this state`}
                   >
-                    <span className="history-icon">{ACTION_ICONS[entry.type] || '•'}</span>
+                    <span className={`history-icon ${entry.type}`}>{ACTION_ICONS[entry.type] || '•'}</span>
                     <div className="history-content">
+                      <span className="history-type-label">{ACTION_LABELS[entry.type] || entry.type}</span>
                       <span className="history-description">{entry.description}</span>
                       <span className="history-time">{formatTime(entry.timestamp)}</span>
                     </div>
@@ -95,9 +119,16 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
               })}
 
               {/* Initial state */}
-              <div className={`history-item initial ${historyIndex === -1 ? 'current' : 'past'}`}>
-                <span className="history-icon">○</span>
-                <span className="history-description">Document opened</span>
+              <div
+                className={`history-item initial clickable ${historyIndex === -1 ? 'current' : 'past'}`}
+                onClick={() => handleJump(-1)}
+                title={historyIndex === -1 ? 'Current state (original document)' : 'Click to revert to original document'}
+              >
+                <span className="history-icon initial-icon">○</span>
+                <div className="history-content">
+                  <span className="history-type-label">Original</span>
+                  <span className="history-description">Document opened</span>
+                </div>
                 {historyIndex === -1 && <span className="history-current-marker">◄</span>}
               </div>
             </>
@@ -107,8 +138,11 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
         <div className="history-panel-footer">
           <span className="history-count">
             {history.length} change{history.length !== 1 ? 's' : ''}
-            {historyIndex >= 0 && ` (at ${historyIndex + 1})`}
+            {historyIndex >= 0 && ` · Position ${historyIndex + 1} of ${history.length}`}
           </span>
+          {history.length > 0 && (
+            <span className="history-hint">Click any entry to jump to that state</span>
+          )}
         </div>
       </div>
     </div>

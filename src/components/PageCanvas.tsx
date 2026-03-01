@@ -22,6 +22,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   const {
     state,
     currentTool,
+    toolSettings,
     addAnnotation,
     updateAnnotation,
     deleteAnnotation,
@@ -40,7 +41,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
   const [textInputPosition, setTextInputPosition] = useState<{ x: number; y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState('');
   const [textInputSize, setTextInputSize] = useState<{ width: number; height: number }>({ width: 150, height: 30 });
-  const [textInputFontSize, setTextInputFontSize] = useState(16);
+  const [textInputFontSize, setTextInputFontSize] = useState(12);
   const [textInputFontFamily, setTextInputFontFamily] = useState('Inter, sans-serif');
   const [textInputColor, setTextInputColor] = useState('#000000');
   const [textInputBgColor, setTextInputBgColor] = useState<string | undefined>(undefined);
@@ -111,6 +112,21 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     },
     [totalRotation, pageWidth, pageHeight]
   );
+
+  // Helper to get the current color for drawing tools based on tool settings
+  const getToolColor = useCallback((tool: string): string => {
+    if (tool === 'draw') return toolSettings.penColor;
+    if (tool === 'highlight') {
+      // Convert hex + opacity to rgba
+      const hex = toolSettings.highlightColor;
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${toolSettings.highlightOpacity})`;
+    }
+    if (tool === 'rectangle' || tool === 'circle' || tool === 'arrow') return toolSettings.shapeColor;
+    return '#ff0000';
+  }, [toolSettings]);
 
   // Helper to update both state and ref for current drawing
   const updateCurrentDrawing = useCallback((drawing: Partial<Annotation> | null) => {
@@ -241,7 +257,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: 0,
           y: 0,
           points: [coords],
-          color: '#ff0000',
+          color: getToolColor('draw'),
+          strokeWidth: toolSettings.penWidth,
         });
       } else if (currentTool === 'arrow') {
         updateCurrentDrawing({
@@ -250,7 +267,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: coords.x,
           y: coords.y,
           points: [coords, coords],
-          color: '#ff0000',
+          color: getToolColor('arrow'),
         });
       } else if (currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle') {
         updateCurrentDrawing({
@@ -260,11 +277,11 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           y: coords.y,
           width: 0,
           height: 0,
-          color: currentTool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+          color: getToolColor(currentTool),
         });
       }
     },
-    [currentTool, getCoordinates, pageNumber, updateCurrentDrawing, textInputPosition]
+    [currentTool, getCoordinates, pageNumber, updateCurrentDrawing, textInputPosition, getToolColor]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -340,6 +357,10 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
         } as Omit<Annotation, 'id'>;
       }
 
+      // Store stroke width for drawing/arrow tools
+      if (annotationToSave.type === 'drawing' || annotationToSave.type === 'arrow') {
+        annotationToSave = { ...annotationToSave, strokeWidth: toolSettings.penWidth };
+      }
       addAnnotation(annotationToSave);
     }
 
@@ -347,7 +368,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     setDrawStart(null);
     updateCurrentDrawing(null);
     drawingPointsRef.current = [];
-  }, [isDrawing, addAnnotation, screenToPageCoords, totalRotation, updateCurrentDrawing]);
+  }, [isDrawing, addAnnotation, screenToPageCoords, totalRotation, updateCurrentDrawing, toolSettings.penWidth]);
 
   // Use document-level event listeners when drawing to ensure reliable capture
   useEffect(() => {
@@ -367,7 +388,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: 0,
           y: 0,
           points: [...drawingPointsRef.current],
-          color: '#ff0000',
+          color: getToolColor('draw'),
+          strokeWidth: toolSettings.penWidth,
         });
       } else if (tool === 'highlight' || tool === 'rectangle' || tool === 'circle') {
         const width = coords.x - drawStart.x;
@@ -379,7 +401,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           y: height >= 0 ? drawStart.y : coords.y,
           width: Math.abs(width),
           height: Math.abs(height),
-          color: tool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+          color: getToolColor(tool),
         });
       } else if (tool === 'arrow') {
         updateCurrentDrawing({
@@ -388,7 +410,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: drawStart.x,
           y: drawStart.y,
           points: [drawStart, coords],
-          color: '#ff0000',
+          color: getToolColor('arrow'),
         });
       }
     };
@@ -404,7 +426,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
       document.removeEventListener('mousemove', handleDocumentMouseMove);
       document.removeEventListener('mouseup', handleDocumentMouseUp);
     };
-  }, [isDrawing, drawStart, currentTool, pageNumber, getCoordinates, updateCurrentDrawing, handleMouseUp]);
+  }, [isDrawing, drawStart, currentTool, pageNumber, getCoordinates, updateCurrentDrawing, handleMouseUp, getToolColor]);
 
   // Touch event handlers for mobile drawing
   const handleTouchStart = useCallback(
@@ -427,7 +449,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: 0,
           y: 0,
           points: [coords],
-          color: '#ff0000',
+          color: getToolColor('draw'),
+          strokeWidth: toolSettings.penWidth,
         });
       } else if (currentTool === 'arrow') {
         updateCurrentDrawing({
@@ -436,7 +459,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: coords.x,
           y: coords.y,
           points: [coords, coords],
-          color: '#ff0000',
+          color: getToolColor('arrow'),
         });
       } else if (currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle') {
         updateCurrentDrawing({
@@ -446,11 +469,11 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           y: coords.y,
           width: 0,
           height: 0,
-          color: currentTool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+          color: getToolColor(currentTool),
         });
       }
     },
-    [currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing]
+    [currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing, getToolColor]
   );
 
   const handleTouchMove = useCallback(
@@ -471,7 +494,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: 0,
           y: 0,
           points: [...drawingPointsRef.current],
-          color: '#ff0000',
+          color: getToolColor('draw'),
+          strokeWidth: toolSettings.penWidth,
         });
       } else if (currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle') {
         const width = coords.x - drawStart.x;
@@ -483,7 +507,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           y: height >= 0 ? drawStart.y : coords.y,
           width: Math.abs(width),
           height: Math.abs(height),
-          color: currentTool === 'highlight' ? 'rgba(255, 255, 0, 0.4)' : '#ff0000',
+          color: getToolColor(currentTool),
         });
       } else if (currentTool === 'arrow') {
         updateCurrentDrawing({
@@ -492,11 +516,11 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
           x: drawStart.x,
           y: drawStart.y,
           points: [drawStart, coords],
-          color: '#ff0000',
+          color: getToolColor('arrow'),
         });
       }
     },
-    [isDrawing, drawStart, currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing]
+    [isDrawing, drawStart, currentTool, getTouchCoordinates, pageNumber, updateCurrentDrawing, getToolColor]
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -562,11 +586,11 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
 
         const coords = getCoordinates(e);
         // Offset y position upward so text appears at click point, not below it
-        const fontSize = 16;
+        const fontSize = 12;
         setTextInputPosition({ x: coords.x, y: coords.y - fontSize });
         setTextInputValue('');
-        setTextInputSize({ width: 150, height: 40 });
-        setTextInputFontSize(16);
+        setTextInputSize({ width: 200, height: 24 });
+        setTextInputFontSize(12);
         setTextInputFontFamily('Inter, sans-serif');
         setTextInputColor('#000000');
         setTextInputBgColor(undefined);
@@ -987,6 +1011,45 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     ? state.annotations.find(a => a.id === selectedAnnotationId)
     : null;
 
+  // Handle delete selected annotation
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedAnnotationId) {
+      deleteAnnotation(selectedAnnotationId);
+      setSelectedAnnotationId(null);
+    }
+  }, [selectedAnnotationId, deleteAnnotation]);
+
+  // Handle duplicate selected annotation
+  const handleDuplicateSelected = useCallback(() => {
+    if (!selectedAnnotationId) return;
+    const annotation = state.annotations.find(a => a.id === selectedAnnotationId);
+    if (!annotation) return;
+
+    const { id: _id, ...rest } = annotation;
+    addAnnotation({
+      ...rest,
+      x: rest.x + 20,
+      y: rest.y + 20,
+    });
+    setSelectedAnnotationId(null);
+  }, [selectedAnnotationId, state.annotations, addAnnotation]);
+
+  // Handle keyboard delete for selected annotation
+  useEffect(() => {
+    if (!selectedAnnotationId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        handleDeleteSelected();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedAnnotationId, handleDeleteSelected]);
+
   // Check if we should show text layer (for text selection)
   const showTextLayer = currentTool === 'select' || currentTool === 'pan';
 
@@ -1037,6 +1100,8 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
             isDraggable={currentTool === 'select'}
             isSelected={selectedAnnotationId === annotation.id}
             onResizeStart={(e, handle) => handleResizeStart(e, annotation.id, handle, annotation)}
+            onDelete={selectedAnnotationId === annotation.id ? handleDeleteSelected : undefined}
+            onDuplicate={selectedAnnotationId === annotation.id ? handleDuplicateSelected : undefined}
             pageToScreenCoords={pageToScreenCoords}
             totalRotation={totalRotation}
           />
@@ -1140,7 +1205,7 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
               onChange={(e) => handleTextInputFontChange('fontSize', parseInt(e.target.value, 10))}
               className="size-select"
             >
-              {[12, 14, 16, 18, 20, 24, 28, 32, 36, 48].map((size) => (
+              {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72].map((size) => (
                 <option key={size} value={size}>{size}px</option>
               ))}
             </select>
@@ -1204,6 +1269,8 @@ interface AnnotationRendererProps {
   isDraggable?: boolean;
   isSelected?: boolean;
   onResizeStart?: (e: React.MouseEvent, handle: string) => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
   pageToScreenCoords?: (pageX: number, pageY: number) => { x: number; y: number };
   totalRotation?: number;
   isCurrentDrawing?: boolean; // For live drawing preview, don't transform
@@ -1283,7 +1350,7 @@ function TextFormatToolbar({ annotation, scale, pageToScreenCoords, onFontChange
     { value: 'Comic Sans MS, cursive', label: 'Comic Sans' },
   ];
 
-  const sizes = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+  const sizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72];
 
   return (
     <div
@@ -1367,6 +1434,8 @@ function AnnotationRenderer({
   isDraggable,
   isSelected,
   onResizeStart,
+  onDelete,
+  onDuplicate,
   pageToScreenCoords,
   totalRotation = 0,
   isCurrentDrawing,
@@ -1477,6 +1546,24 @@ function AnnotationRenderer({
           {isSelected && onResizeStart && (
             <ResizeHandles scale={scale} onResizeStart={onResizeStart} />
           )}
+          {isSelected && (onDelete || onDuplicate) && (
+            <div className="annotation-actions" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+              {onDuplicate && (
+                <button className="annotation-action-btn" onClick={onDuplicate} title="Duplicate">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+              )}
+              {onDelete && (
+                <button className="annotation-action-btn delete" onClick={onDelete} title="Delete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -1551,7 +1638,7 @@ function AnnotationRenderer({
           <path
             d={pathData}
             stroke={annotation.color || '#ff0000'}
-            strokeWidth={2}
+            strokeWidth={(annotation.strokeWidth || 2) * scale}
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -1593,7 +1680,7 @@ function AnnotationRenderer({
             x2={(end.x - minX + padding) * scale}
             y2={(end.y - minY + padding) * scale}
             stroke={annotation.color || '#ff0000'}
-            strokeWidth={2}
+            strokeWidth={(annotation.strokeWidth || 2) * scale}
             pointerEvents="stroke"
           />
           <polygon

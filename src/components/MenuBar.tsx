@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePDF } from '../contexts/PDFContext';
 import { exportPDF, downloadBlob } from '../utils/pdfExport';
 import type { Tool } from '../types/pdf';
@@ -123,6 +124,7 @@ function isKnownSoftware(value: string): boolean {
 }
 
 export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVisibility, onShowHistory, onShowSearch, onShowShortcuts, onExtractPages, onSplitPDF, onFitToPage, onShowPrivacy, onShowTerms, onShowAbout, onPrint, onShowMetadata }: MenuBarProps) {
+  const navigate = useNavigate();
   const {
     state,
     settings,
@@ -376,6 +378,7 @@ export function MenuBar({ onOpenFile, onMergeFiles, visibleTools, onToggleToolVi
   ];
 
   const helpMenu: MenuItem[] = [
+    { label: 'Help & User Guide', action: () => navigate('/guide') },
     { label: 'Keyboard Shortcuts', action: onShowShortcuts, shortcut: '?' },
     { label: '', divider: true },
     { label: 'Privacy Policy', action: onShowPrivacy },

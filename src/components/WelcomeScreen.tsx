@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePDF } from '../contexts/PDFContext';
 import './WelcomeScreen.css';
 
@@ -20,6 +21,7 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps) {
   const { loadFile } = usePDF();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
 
@@ -218,6 +220,7 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
         <div className="welcome-footer">
           <p className="welcome-footer-shortcuts">Press <kbd>?</kbd> anytime to see keyboard shortcuts</p>
           <div className="welcome-footer-links">
+            <button onClick={() => navigate('/guide')} className="footer-link">Help & User Guide</button>
             {onShowPrivacy && (
               <button onClick={onShowPrivacy} className="footer-link">Privacy Policy</button>
             )}

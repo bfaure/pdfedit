@@ -3,6 +3,10 @@ import { usePDF } from '../contexts/PDFContext';
 import type { Tool } from '../types/pdf';
 import './Toolbar.css';
 
+const PEN_WIDTHS = [1, 2, 3, 4, 6, 8];
+const PRESET_COLORS = ['#000000', '#ff0000', '#0000ff', '#00aa00', '#ff6600', '#9900cc', '#ff00ff', '#00aaff'];
+const HIGHLIGHT_COLORS = ['#ffff00', '#00ff00', '#00ccff', '#ff99cc', '#ffaa00', '#ff0000', '#cc99ff', '#aaffaa'];
+
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
 interface ToolbarProps {
@@ -19,6 +23,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
   const {
     state,
     settings,
+    toolSettings,
     currentTool,
     canUndo,
     canRedo,
@@ -26,6 +31,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
     setScale,
     setTool,
     updateSettings,
+    updateToolSettings,
     undo,
     redo,
   } = usePDF();
@@ -322,6 +328,107 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
         >
           ⋮
         </button>
+      )}
+
+      {/* Tool options bar - shows when draw/highlight/shape tool is active */}
+      {hasFile && !isMobile && (currentTool === 'draw' || currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'arrow') && (
+        <div className="tool-options-bar">
+          {currentTool === 'draw' && (
+            <>
+              <span className="tool-options-label">Pen:</span>
+              <div className="color-presets">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`color-swatch ${toolSettings.penColor === color ? 'active' : ''}`}
+                    style={{ background: color }}
+                    onClick={() => updateToolSettings({ penColor: color })}
+                    title={color}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={toolSettings.penColor}
+                  onChange={(e) => updateToolSettings({ penColor: e.target.value })}
+                  className="color-picker-input"
+                  title="Custom color"
+                />
+              </div>
+              <span className="tool-options-divider" />
+              <span className="tool-options-label">Width:</span>
+              <div className="width-presets">
+                {PEN_WIDTHS.map((w) => (
+                  <button
+                    key={w}
+                    className={`width-swatch ${toolSettings.penWidth === w ? 'active' : ''}`}
+                    onClick={() => updateToolSettings({ penWidth: w })}
+                    title={`${w}px`}
+                  >
+                    <span className="width-preview" style={{ width: Math.min(w * 2, 16), height: Math.min(w * 2, 16), background: toolSettings.penColor }} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {currentTool === 'highlight' && (
+            <>
+              <span className="tool-options-label">Highlight:</span>
+              <div className="color-presets">
+                {HIGHLIGHT_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`color-swatch ${toolSettings.highlightColor === color ? 'active' : ''}`}
+                    style={{ background: color, opacity: 0.7 }}
+                    onClick={() => updateToolSettings({ highlightColor: color })}
+                    title={color}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={toolSettings.highlightColor}
+                  onChange={(e) => updateToolSettings({ highlightColor: e.target.value })}
+                  className="color-picker-input"
+                  title="Custom color"
+                />
+              </div>
+              <span className="tool-options-divider" />
+              <span className="tool-options-label">Opacity:</span>
+              <input
+                type="range"
+                min="10"
+                max="80"
+                value={Math.round(toolSettings.highlightOpacity * 100)}
+                onChange={(e) => updateToolSettings({ highlightOpacity: parseInt(e.target.value, 10) / 100 })}
+                className="tool-options-slider"
+                title={`${Math.round(toolSettings.highlightOpacity * 100)}%`}
+              />
+              <span className="tool-options-value">{Math.round(toolSettings.highlightOpacity * 100)}%</span>
+            </>
+          )}
+          {(currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'arrow') && (
+            <>
+              <span className="tool-options-label">Color:</span>
+              <div className="color-presets">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`color-swatch ${toolSettings.shapeColor === color ? 'active' : ''}`}
+                    style={{ background: color }}
+                    onClick={() => updateToolSettings({ shapeColor: color })}
+                    title={color}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={toolSettings.shapeColor}
+                  onChange={(e) => updateToolSettings({ shapeColor: e.target.value })}
+                  className="color-picker-input"
+                  title="Custom color"
+                />
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

@@ -20,6 +20,7 @@ export interface Annotation {
   backgroundColor?: string;
   backgroundOpacity?: number;
   points?: { x: number; y: number }[];
+  strokeWidth?: number;
 }
 
 // Metadata field can be: original value (undefined), custom value (string), or removed (null)
@@ -61,6 +62,14 @@ export type Tool =
   | 'signature'
   | 'image'
   | 'eraser';
+
+export interface ToolSettings {
+  penColor: string;
+  penWidth: number;
+  highlightColor: string;
+  highlightOpacity: number;
+  shapeColor: string;
+}
 
 export interface ViewerSettings {
   showThumbnails: boolean;

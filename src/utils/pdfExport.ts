@@ -1,5 +1,247 @@
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees, type PDFPage } from 'pdf-lib';
 import type { Annotation, MetadataOverrides } from '../types/pdf';
+
+/**
+ * Transform annotation coordinates from our page-space (top-left origin, y-down)
+ * to pdf-lib MediaBox space (bottom-left origin, y-up), accounting for page rotation.
+ *
+ * When a page has rotation set, the PDF viewer rotates the entire page including
+ * anything drawn on it. So we must draw annotations in the INVERSE-rotated position
+ * so that after the viewer applies rotation, they appear in the correct place.
+ */
+function transformForRotation(
+  x: number, y: number,
+  w: number, h: number,
+  pageWidth: number, pageHeight: number,
+  rotation: number
+): { x: number; y: number; w: number; h: number; rotate: number } {
+  const rot = ((rotation % 360) + 360) % 360;
+  switch (rot) {
+    case 0:
+      // No rotation: just flip y for pdf-lib coordinate system
+      return { x, y: pageHeight - y - h, w, h, rotate: 0 };
+    case 90:
+      // Page rotated 90° CW in viewer. To counteract:
+      // draw in position that after 90° CW rotation lands where user intended
+      return { x: y, y: x, w: h, h: w, rotate: -90 };
+    case 180:
+      // Page rotated 180° in viewer. To counteract:
+      return { x: pageWidth - x - w, y: y, w, h, rotate: 180 };
+    case 270:
+      // Page rotated 270° CW in viewer. To counteract:
+      return { x: pageHeight - y - h, y: pageWidth - x - w, w: h, h: w, rotate: 90 };
+    default:
+      return { x, y: pageHeight - y - h, w, h, rotate: 0 };
+  }
+}
+
+function transformPointForRotation(
+  x: number, y: number,
+  pageWidth: number, pageHeight: number,
+  rotation: number
+): { x: number; y: number } {
+  const rot = ((rotation % 360) + 360) % 360;
+  switch (rot) {
+    case 0:
+      return { x, y: pageHeight - y };
+    case 90:
+      return { x: y, y: x };
+    case 180:
+      return { x: pageWidth - x, y };
+    case 270:
+      return { x: pageHeight - y, y: pageWidth - x };
+    default:
+      return { x, y: pageHeight - y };
+  }
+}
+
+function drawAnnotationOnPage(
+  page: PDFPage,
+  annotation: Annotation,
+  font: Awaited<ReturnType<typeof PDFDocument.prototype.embedFont>>,
+  pdfDoc: PDFDocument,
+  totalRotation: number
+): Promise<void> | void {
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+
+  switch (annotation.type) {
+    case 'text':
+      if (annotation.content) {
+        const fontSize = annotation.fontSize || 12;
+        const color = hexToRgb(annotation.color || '#000000');
+        const t = transformForRotation(
+          annotation.x, annotation.y,
+          0, fontSize,
+          pageWidth, pageHeight, totalRotation
+        );
+        page.drawText(annotation.content, {
+          x: t.x,
+          y: t.y,
+          size: fontSize,
+          font,
+          color: rgb(color.r, color.g, color.b),
+          rotate: degrees(t.rotate),
+        });
+      }
+      break;
+
+    case 'highlight':
+      if (annotation.width && annotation.height) {
+        const color = parseRgba(annotation.color || 'rgba(255, 255, 0, 0.4)');
+        const t = transformForRotation(
+          annotation.x, annotation.y,
+          annotation.width, annotation.height,
+          pageWidth, pageHeight, totalRotation
+        );
+        page.drawRectangle({
+          x: t.x,
+          y: t.y,
+          width: t.w,
+          height: t.h,
+          color: rgb(color.r, color.g, color.b),
+          opacity: color.a,
+          rotate: degrees(t.rotate),
+        });
+      }
+      break;
+
+    case 'rectangle':
+      if (annotation.width && annotation.height) {
+        const color = hexToRgb(annotation.color || '#ff0000');
+        const t = transformForRotation(
+          annotation.x, annotation.y,
+          annotation.width, annotation.height,
+          pageWidth, pageHeight, totalRotation
+        );
+        page.drawRectangle({
+          x: t.x,
+          y: t.y,
+          width: t.w,
+          height: t.h,
+          borderColor: rgb(color.r, color.g, color.b),
+          borderWidth: 2,
+          rotate: degrees(t.rotate),
+        });
+      }
+      break;
+
+    case 'circle':
+      if (annotation.width && annotation.height) {
+        const color = hexToRgb(annotation.color || '#ff0000');
+        const t = transformForRotation(
+          annotation.x, annotation.y,
+          annotation.width, annotation.height,
+          pageWidth, pageHeight, totalRotation
+        );
+        const centerX = t.x + t.w / 2;
+        const centerY = t.y + t.h / 2;
+        page.drawEllipse({
+          x: centerX,
+          y: centerY,
+          xScale: t.w / 2,
+          yScale: t.h / 2,
+          borderColor: rgb(color.r, color.g, color.b),
+          borderWidth: 2,
+        });
+      }
+      break;
+
+    case 'drawing':
+      if (annotation.points && annotation.points.length >= 2) {
+        const color = hexToRgb(annotation.color || '#ff0000');
+        const drawThickness = annotation.strokeWidth || 2;
+        for (let j = 0; j < annotation.points.length - 1; j++) {
+          const startPt = annotation.points[j];
+          const endPt = annotation.points[j + 1];
+          const tStart = transformPointForRotation(startPt.x, startPt.y, pageWidth, pageHeight, totalRotation);
+          const tEnd = transformPointForRotation(endPt.x, endPt.y, pageWidth, pageHeight, totalRotation);
+          page.drawLine({
+            start: tStart,
+            end: tEnd,
+            thickness: drawThickness,
+            color: rgb(color.r, color.g, color.b),
+          });
+        }
+      }
+      break;
+
+    case 'arrow':
+      if (annotation.points && annotation.points.length >= 2) {
+        const [start, end] = annotation.points;
+        const color = hexToRgb(annotation.color || '#ff0000');
+        const arrowThickness = annotation.strokeWidth || 2;
+        const tStart = transformPointForRotation(start.x, start.y, pageWidth, pageHeight, totalRotation);
+        const tEnd = transformPointForRotation(end.x, end.y, pageWidth, pageHeight, totalRotation);
+
+        page.drawLine({
+          start: tStart,
+          end: tEnd,
+          thickness: arrowThickness,
+          color: rgb(color.r, color.g, color.b),
+        });
+
+        // Draw arrowhead
+        const angle = Math.atan2(tEnd.y - tStart.y, tEnd.x - tStart.x);
+        const arrowLength = 10;
+        const arrowAngle = Math.PI / 6;
+
+        page.drawLine({
+          start: tEnd,
+          end: {
+            x: tEnd.x - arrowLength * Math.cos(angle - arrowAngle),
+            y: tEnd.y - arrowLength * Math.sin(angle - arrowAngle),
+          },
+          thickness: arrowThickness,
+          color: rgb(color.r, color.g, color.b),
+        });
+        page.drawLine({
+          start: tEnd,
+          end: {
+            x: tEnd.x - arrowLength * Math.cos(angle + arrowAngle),
+            y: tEnd.y - arrowLength * Math.sin(angle + arrowAngle),
+          },
+          thickness: arrowThickness,
+          color: rgb(color.r, color.g, color.b),
+        });
+      }
+      break;
+
+    case 'signature':
+    case 'image':
+      if (annotation.content && annotation.width && annotation.height) {
+        const t = transformForRotation(
+          annotation.x, annotation.y,
+          annotation.width, annotation.height,
+          pageWidth, pageHeight, totalRotation
+        );
+        return (async () => {
+          try {
+            const isJpeg = annotation.content!.startsWith('data:image/jpeg') ||
+                          annotation.content!.startsWith('data:image/jpg');
+            const imageData = annotation.content!.split(',')[1];
+            const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+
+            const embeddedImage = annotation.type === 'signature'
+              ? await pdfDoc.embedPng(imageBytes)
+              : isJpeg
+                ? await pdfDoc.embedJpg(imageBytes)
+                : await pdfDoc.embedPng(imageBytes);
+
+            page.drawImage(embeddedImage, {
+              x: t.x,
+              y: t.y,
+              width: t.w,
+              height: t.h,
+              rotate: degrees(t.rotate),
+            });
+          } catch (error) {
+            console.error(`Failed to embed ${annotation.type}:`, error);
+          }
+        })();
+      }
+      break;
+  }
+}
 
 interface ExportOptions {
   originalFile: File;
@@ -50,170 +292,10 @@ export async function exportPDF(options: ExportOptions): Promise<Blob> {
       page.setRotation(degrees(totalRotation));
     }
 
-    // Get page dimensions
-    const { height } = page.getSize();
-
-    // Add annotations for this page
+    // Add annotations for this page, using rotation-aware coordinate transforms
     const pageAnnotations = annotations.filter((a) => a.pageNumber === originalPageNumber);
-
     for (const annotation of pageAnnotations) {
-      switch (annotation.type) {
-        case 'text':
-          if (annotation.content) {
-            const color = hexToRgb(annotation.color || '#000000');
-            page.drawText(annotation.content, {
-              x: annotation.x,
-              y: height - annotation.y - (annotation.fontSize || 16),
-              size: annotation.fontSize || 16,
-              font,
-              color: rgb(color.r, color.g, color.b),
-            });
-          }
-          break;
-
-        case 'highlight':
-          if (annotation.width && annotation.height) {
-            const color = parseRgba(annotation.color || 'rgba(255, 255, 0, 0.4)');
-            page.drawRectangle({
-              x: annotation.x,
-              y: height - annotation.y - annotation.height,
-              width: annotation.width,
-              height: annotation.height,
-              color: rgb(color.r, color.g, color.b),
-              opacity: color.a,
-            });
-          }
-          break;
-
-        case 'rectangle':
-          if (annotation.width && annotation.height) {
-            const color = hexToRgb(annotation.color || '#ff0000');
-            page.drawRectangle({
-              x: annotation.x,
-              y: height - annotation.y - annotation.height,
-              width: annotation.width,
-              height: annotation.height,
-              borderColor: rgb(color.r, color.g, color.b),
-              borderWidth: 2,
-            });
-          }
-          break;
-
-        case 'circle':
-          if (annotation.width && annotation.height) {
-            const color = hexToRgb(annotation.color || '#ff0000');
-            const centerX = annotation.x + annotation.width / 2;
-            const centerY = height - annotation.y - annotation.height / 2;
-            page.drawEllipse({
-              x: centerX,
-              y: centerY,
-              xScale: annotation.width / 2,
-              yScale: annotation.height / 2,
-              borderColor: rgb(color.r, color.g, color.b),
-              borderWidth: 2,
-            });
-          }
-          break;
-
-        case 'drawing':
-          if (annotation.points && annotation.points.length >= 2) {
-            const color = hexToRgb(annotation.color || '#ff0000');
-            for (let j = 0; j < annotation.points.length - 1; j++) {
-              const start = annotation.points[j];
-              const end = annotation.points[j + 1];
-              page.drawLine({
-                start: { x: start.x, y: height - start.y },
-                end: { x: end.x, y: height - end.y },
-                thickness: 2,
-                color: rgb(color.r, color.g, color.b),
-              });
-            }
-          }
-          break;
-
-        case 'arrow':
-          if (annotation.points && annotation.points.length >= 2) {
-            const [start, end] = annotation.points;
-            const color = hexToRgb(annotation.color || '#ff0000');
-
-            // Draw the line
-            page.drawLine({
-              start: { x: start.x, y: height - start.y },
-              end: { x: end.x, y: height - end.y },
-              thickness: 2,
-              color: rgb(color.r, color.g, color.b),
-            });
-
-            // Draw arrowhead
-            const angle = Math.atan2(end.y - start.y, end.x - start.x);
-            const arrowLength = 10;
-            const arrowAngle = Math.PI / 6;
-
-            const arrow1X = end.x - arrowLength * Math.cos(angle - arrowAngle);
-            const arrow1Y = height - (end.y - arrowLength * Math.sin(angle - arrowAngle));
-            const arrow2X = end.x - arrowLength * Math.cos(angle + arrowAngle);
-            const arrow2Y = height - (end.y - arrowLength * Math.sin(angle + arrowAngle));
-
-            page.drawLine({
-              start: { x: end.x, y: height - end.y },
-              end: { x: arrow1X, y: arrow1Y },
-              thickness: 2,
-              color: rgb(color.r, color.g, color.b),
-            });
-            page.drawLine({
-              start: { x: end.x, y: height - end.y },
-              end: { x: arrow2X, y: arrow2Y },
-              thickness: 2,
-              color: rgb(color.r, color.g, color.b),
-            });
-          }
-          break;
-
-        case 'signature':
-          if (annotation.content && annotation.width && annotation.height) {
-            try {
-              // Convert data URL to bytes
-              const imageData = annotation.content.split(',')[1];
-              const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-              const pngImage = await pdfDoc.embedPng(imageBytes);
-
-              page.drawImage(pngImage, {
-                x: annotation.x,
-                y: height - annotation.y - annotation.height,
-                width: annotation.width,
-                height: annotation.height,
-              });
-            } catch (error) {
-              console.error('Failed to embed signature:', error);
-            }
-          }
-          break;
-
-        case 'image':
-          if (annotation.content && annotation.width && annotation.height) {
-            try {
-              // Detect image type from data URL
-              const isJpeg = annotation.content.startsWith('data:image/jpeg') ||
-                            annotation.content.startsWith('data:image/jpg');
-              const imageData = annotation.content.split(',')[1];
-              const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-
-              const embeddedImage = isJpeg
-                ? await pdfDoc.embedJpg(imageBytes)
-                : await pdfDoc.embedPng(imageBytes);
-
-              page.drawImage(embeddedImage, {
-                x: annotation.x,
-                y: height - annotation.y - annotation.height,
-                width: annotation.width,
-                height: annotation.height,
-              });
-            } catch (error) {
-              console.error('Failed to embed image:', error);
-            }
-          }
-          break;
-      }
+      await drawAnnotationOnPage(page, annotation, font, pdfDoc, totalRotation);
     }
   }
 

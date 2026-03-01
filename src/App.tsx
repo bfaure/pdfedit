@@ -18,6 +18,7 @@ import { LegalPages } from './components/LegalPages';
 import { AboutDialog } from './components/AboutDialog';
 import { MobileMenu } from './components/MobileMenu';
 import { MetadataPanel } from './components/MetadataPanel';
+import { GuidePage } from './components/GuidePage';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { exportPDF, downloadBlob } from './utils/pdfExport';
 import type { Tool } from './types/pdf';
@@ -409,6 +410,7 @@ function AppContent() {
                 />
               }
             />
+            <Route path="/guide" element={<GuidePage />} />
             <Route
               path="/editor"
               element={
