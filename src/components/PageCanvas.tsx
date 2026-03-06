@@ -1451,6 +1451,8 @@ function AnnotationRenderer({
 
   // Transform a bounding box from page to screen coordinates using center-based approach
   // This ensures the annotation stays at the same physical location regardless of rotation
+  // For geometric shapes (highlight, rect, circle), dimensions are swapped at 90/270.
+  // For content annotations (text, signature, image), use getScreenContentBox instead.
   const getScreenBoundingBox = (x: number, y: number, width: number, height: number) => {
     if (isCurrentDrawing || !pageToScreenCoords) {
       return { x, y, width, height };
@@ -1476,6 +1478,9 @@ function AnnotationRenderer({
       height: screenDims.height,
     };
   };
+
+  // CSS rotation for content annotations (applied so they rotate with page content)
+  const contentRotation = (!isCurrentDrawing && totalRotation) ? totalRotation : 0;
 
   const screenPos = getScreenPosition(annotation.x, annotation.y);
   const style: React.CSSProperties = {
@@ -1518,13 +1523,17 @@ function AnnotationRenderer({
         const b = parseInt(hex.substring(4, 6), 16);
         bgColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
       }
+      // Position at transformed top-left, rotate around origin (0 0)
+      // This avoids center-based math that depends on accurate width/height
       return (
         <div
           className={`annotation-element ${isSelected ? 'selected' : ''}`}
           style={{
-            ...style,
+            position: 'absolute',
+            left: screenPos.x * scale,
+            top: screenPos.y * scale,
             color: annotation.color || '#000',
-            fontSize: (annotation.fontSize || 16) * scale,
+            fontSize: (annotation.fontSize || 12) * scale,
             fontFamily: annotation.fontFamily || 'Inter, sans-serif',
             whiteSpace: 'pre-wrap',
             pointerEvents: isDraggable ? 'auto' : 'none',
@@ -1534,10 +1543,11 @@ function AnnotationRenderer({
             minWidth: 50 * scale,
             outline: isSelected ? '2px solid var(--accent-color, #02B7FF)' : 'none',
             outlineOffset: 2,
-            position: 'absolute',
             backgroundColor: bgColor,
             padding: bgColor ? '2px 4px' : undefined,
             borderRadius: bgColor ? '2px' : undefined,
+            transform: contentRotation ? `rotate(${contentRotation}deg)` : undefined,
+            transformOrigin: '0 0',
           }}
           onMouseDown={onMouseDown}
           onDoubleClick={onDoubleClick}
@@ -1696,20 +1706,21 @@ function AnnotationRenderer({
     }
     case 'signature': {
       if (!annotation.content) return null;
-      const box = getScreenBoundingBox(annotation.x, annotation.y, annotation.width || 150, annotation.height || 75);
       return (
         <img
           src={annotation.content}
           alt="Signature"
           style={{
             position: 'absolute',
-            left: box.x * scale,
-            top: box.y * scale,
-            width: box.width * scale,
-            height: box.height * scale,
+            left: screenPos.x * scale,
+            top: screenPos.y * scale,
+            width: (annotation.width || 150) * scale,
+            height: (annotation.height || 75) * scale,
             objectFit: 'contain',
             pointerEvents: isDraggable ? 'auto' : 'none',
             cursor: isDraggable ? 'move' : 'default',
+            transform: contentRotation ? `rotate(${contentRotation}deg)` : undefined,
+            transformOrigin: '0 0',
           }}
           onMouseDown={onMouseDown}
           draggable={false}
@@ -1718,20 +1729,21 @@ function AnnotationRenderer({
     }
     case 'image': {
       if (!annotation.content) return null;
-      const box = getScreenBoundingBox(annotation.x, annotation.y, annotation.width || 200, annotation.height || 150);
       return (
         <div
           className={`annotation-element image-annotation ${isSelected ? 'selected' : ''}`}
           style={{
             position: 'absolute',
-            left: box.x * scale,
-            top: box.y * scale,
-            width: box.width * scale,
-            height: box.height * scale,
+            left: screenPos.x * scale,
+            top: screenPos.y * scale,
+            width: (annotation.width || 200) * scale,
+            height: (annotation.height || 150) * scale,
             pointerEvents: isDraggable ? 'auto' : 'none',
             cursor: isDraggable ? 'move' : 'default',
             outline: isSelected ? '2px solid var(--accent-color, #02B7FF)' : 'none',
             outlineOffset: 2,
+            transform: contentRotation ? `rotate(${contentRotation}deg)` : undefined,
+            transformOrigin: '0 0',
           }}
           onMouseDown={onMouseDown}
         >
