@@ -1483,13 +1483,6 @@ function AnnotationRenderer({
   const contentRotation = (!isCurrentDrawing && totalRotation) ? totalRotation : 0;
 
   const screenPos = getScreenPosition(annotation.x, annotation.y);
-  const style: React.CSSProperties = {
-    position: 'absolute',
-    left: screenPos.x * scale,
-    top: screenPos.y * scale,
-    pointerEvents: isDraggable ? 'auto' : 'none',
-    cursor: isDraggable ? 'move' : 'default',
-  };
 
   switch (annotation.type) {
     case 'highlight': {
