@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { PDFProvider, usePDF } from './contexts/PDFContext';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -14,8 +14,8 @@ import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 import { PageExtractionDialog } from './components/PageExtractionDialog';
 import { SplitPDFDialog } from './components/SplitPDFDialog';
 import { MergePDFDialog } from './components/MergePDFDialog';
-import { LegalPages } from './components/LegalPages';
-import { AboutDialog } from './components/AboutDialog';
+import { LegalPage } from './components/LegalPages';
+import { AboutPage } from './components/AboutDialog';
 import { MobileMenu } from './components/MobileMenu';
 import { MetadataPanel } from './components/MetadataPanel';
 import { GuidePage } from './components/GuidePage';
@@ -26,31 +26,6 @@ import './App.css';
 
 const DEFAULT_VISIBLE_TOOLS: Tool[] = ['select', 'pan', 'highlight', 'text', 'draw', 'rectangle', 'circle', 'arrow', 'signature', 'image', 'eraser'];
 
-// Component shown when user navigates directly to /editor without a file
-function EditorEmptyState({ onOpenFile, isMobile }: { onOpenFile: () => void; isMobile: boolean }) {
-  return (
-    <div className="editor-empty-state">
-      <div className="editor-empty-content">
-        <div className="editor-empty-icon">📄</div>
-        <h2>No PDF Open</h2>
-        <p>
-          {isMobile
-            ? 'Tap the menu button (⋮) to open a PDF file'
-            : 'Use File → Open or drag and drop a PDF to get started'}
-        </p>
-        <button className="editor-empty-btn" onClick={onOpenFile}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="12" y1="18" x2="12" y2="12"/>
-            <line x1="9" y1="15" x2="15" y2="15"/>
-          </svg>
-          Open PDF
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function AppContent() {
   const { state, settings, currentTool, loadFile, addAnnotation, setTool, requestFitToPage } = usePDF();
@@ -71,8 +46,6 @@ function AppContent() {
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [extractPreselectedPages, setExtractPreselectedPages] = useState<number[]>([]);
-  const [showLegalPage, setShowLegalPage] = useState<'privacy' | 'terms' | null>(null);
-  const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -370,9 +343,9 @@ function AppContent() {
           onExtractPages={() => setShowExtractDialog(true)}
           onSplitPDF={() => setShowSplitDialog(true)}
           onFitToPage={requestFitToPage}
-          onShowPrivacy={() => setShowLegalPage('privacy')}
-          onShowTerms={() => setShowLegalPage('terms')}
-          onShowAbout={() => setShowAboutDialog(true)}
+          onShowPrivacy={() => navigate('/privacy')}
+          onShowTerms={() => navigate('/terms')}
+          onShowAbout={() => navigate('/about')}
           onPrint={handlePrint}
           onShowMetadata={(highlight) => {
             setHighlightMetadataConcerns(highlight || false);
@@ -405,22 +378,22 @@ function AppContent() {
               path="/"
               element={
                 <WelcomeScreen
-                  onShowPrivacy={() => setShowLegalPage('privacy')}
-                  onShowTerms={() => setShowLegalPage('terms')}
+                  onShowPrivacy={() => navigate('/privacy')}
+                  onShowTerms={() => navigate('/terms')}
                 />
               }
             />
             <Route path="/guide" element={<GuidePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy" element={<LegalPage page="privacy" />} />
+            <Route path="/terms" element={<LegalPage page="terms" />} />
             <Route
               path="/editor"
               element={
                 state.file ? (
                   <PDFViewer isPrinting={isPrinting} />
                 ) : (
-                  <EditorEmptyState
-                    onOpenFile={() => fileInputRef.current?.click()}
-                    isMobile={isMobile}
-                  />
+                  <Navigate to="/" replace />
                 )
               }
             />
@@ -481,16 +454,6 @@ function AppContent() {
           isOpen={showMergeDialog}
           onClose={() => setShowMergeDialog(false)}
         />
-        {showLegalPage && (
-          <LegalPages
-            page={showLegalPage}
-            onClose={() => setShowLegalPage(null)}
-          />
-        )}
-        <AboutDialog
-          isOpen={showAboutDialog}
-          onClose={() => setShowAboutDialog(false)}
-        />
         {isMobile && (
           <MobileMenu
             isOpen={mobileMenuOpen}
@@ -502,7 +465,7 @@ function AppContent() {
             onMergeFiles={() => setShowMergeDialog(true)}
             onExtractPages={() => setShowExtractDialog(true)}
             onSplitPDF={() => setShowSplitDialog(true)}
-            onShowAbout={() => setShowAboutDialog(true)}
+            onShowAbout={() => navigate('/about')}
             currentTool={currentTool}
             onSelectTool={setTool}
           />

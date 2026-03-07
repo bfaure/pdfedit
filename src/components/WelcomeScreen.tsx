@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePDF } from '../contexts/PDFContext';
 import './WelcomeScreen.css';
@@ -23,7 +23,6 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
   const { loadFile } = usePDF();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,7 +149,7 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
   return (
     <div className="welcome-screen">
       <div className="welcome-content">
-        <div className="welcome-header">
+        <header className="welcome-header">
           <img
             src="/PDFEdit_Live_StyleGuide/PDFEdit_Horizontal_TPBG.svg"
             alt="PDFEdit.live"
@@ -161,10 +160,11 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
             alt="PDFEdit.live"
             className="welcome-logo welcome-logo-dark"
           />
+          <h1 className="welcome-title">Free Online PDF Editor — No Uploads Required</h1>
           <p className="welcome-subtitle">
             Edit PDFs securely in your browser. No uploads, no servers — your files never leave your device.
           </p>
-        </div>
+        </header>
 
         <div className="security-banner">
           <div className="security-icon">
@@ -215,22 +215,67 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
           <p className="drop-hint">or drag and drop a file anywhere</p>
         </div>
 
-        <div className="features-grid">
-          {features.map((feature) => (
-            <button
-              key={feature.title}
-              className="feature-card"
-              onClick={() => setSelectedFeature(feature)}
-            >
-              <span className="feature-icon">{feature.icon}</span>
-              <h3>{feature.title}</h3>
-              <p>{feature.desc}</p>
-              <span className="feature-learn-more">Learn more</span>
-            </button>
-          ))}
-        </div>
+        <section className="how-it-works">
+          <h2>How it works</h2>
+          <ol className="how-it-works-steps">
+            <li>
+              <span className="hiw-number">1</span>
+              <div>
+                <strong>Open your PDF</strong>
+                <p>Click "Open PDF" or drag and drop any PDF file onto the page. Your file is loaded directly in the browser — nothing is uploaded anywhere.</p>
+              </div>
+            </li>
+            <li>
+              <span className="hiw-number">2</span>
+              <div>
+                <strong>Edit, annotate, and sign</strong>
+                <p>Use the toolbar to highlight text, draw shapes, add text notes, insert your signature, rotate pages, merge or split documents, and more.</p>
+              </div>
+            </li>
+            <li>
+              <span className="hiw-number">3</span>
+              <div>
+                <strong>Download your edited PDF</strong>
+                <p>Press Ctrl+S or use File → Save to download your edited PDF. All annotations, signatures, and page changes are embedded in the final file.</p>
+              </div>
+            </li>
+          </ol>
+        </section>
 
-        <div className="welcome-footer">
+        <section className="features-section">
+          <h2>Everything you need to edit PDF files</h2>
+          <div className="features-grid">
+            {features.map((feature) => (
+              <article key={feature.title} className="feature-card">
+                <span className="feature-icon">{feature.icon}</span>
+                <h3>{feature.title}</h3>
+                <p className="feature-desc">{feature.details.description}</p>
+                <ul className="feature-steps-list">
+                  {feature.details.steps.map((step, i) => (
+                    <li key={i}>{step}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="why-section">
+          <h2>Why use PDFEdit.live?</h2>
+          <p>
+            PDFEdit.live is a free, browser-based PDF editor that requires no installation, no account, and no file uploads.
+            Unlike cloud-based PDF editors that send your documents to remote servers, PDFEdit.live processes everything locally
+            using modern browser technology. Whether you need to fill out a form, sign a contract, annotate a report, merge
+            multiple documents, or reorganize pages, you can do it all privately and for free — right in your browser.
+          </p>
+          <p>
+            Compatible with all modern browsers on desktop and mobile, PDFEdit.live works on Windows, macOS, Linux, iOS, and Android
+            without any plugins or extensions. Your edited PDFs are saved with all annotations, signatures, page rotations,
+            deletions, and reordering fully embedded and compatible with any standard PDF viewer.
+          </p>
+        </section>
+
+        <footer className="welcome-footer">
           <p className="welcome-footer-shortcuts">Press <kbd>?</kbd> anytime to see keyboard shortcuts</p>
           <div className="welcome-footer-links">
             <button onClick={() => navigate('/guide')} className="footer-link">Help & User Guide</button>
@@ -241,62 +286,8 @@ export function WelcomeScreen({ onShowPrivacy, onShowTerms }: WelcomeScreenProps
               <button onClick={onShowTerms} className="footer-link">Terms of Service</button>
             )}
           </div>
-        </div>
+        </footer>
       </div>
-
-      {/* Feature Detail Modal */}
-      {selectedFeature && (
-        <div className="feature-modal-overlay" onClick={() => setSelectedFeature(null)}>
-          <div className="feature-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="feature-modal-close" onClick={() => setSelectedFeature(null)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-
-            <div className="feature-modal-header">
-              <span className="feature-modal-icon">{selectedFeature.icon}</span>
-              <h2>{selectedFeature.title}</h2>
-            </div>
-
-            <p className="feature-modal-description">{selectedFeature.details.description}</p>
-
-            <div className="feature-modal-section">
-              <h3>How to use</h3>
-              <ol className="feature-modal-steps">
-                {selectedFeature.details.steps.map((step, index) => (
-                  <li key={index}>{step}</li>
-                ))}
-              </ol>
-            </div>
-
-            {selectedFeature.details.tips && (
-              <div className="feature-modal-section">
-                <h3>Tips</h3>
-                <ul className="feature-modal-tips">
-                  {selectedFeature.details.tips.map((tip, index) => (
-                    <li key={index}>{tip}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="feature-modal-cta">
-              <p className="feature-modal-cta-text">Ready to try it out?</p>
-              <button className="welcome-btn primary" onClick={openFilePicker}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
-                </svg>
-                Get Started — Open a PDF
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

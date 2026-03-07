@@ -3,56 +3,28 @@ import type { Annotation, MetadataOverrides } from '../types/pdf';
 
 /**
  * Transform annotation coordinates from our page-space (top-left origin, y-down)
- * to pdf-lib MediaBox space (bottom-left origin, y-up), accounting for page rotation.
+ * to pdf-lib MediaBox space (bottom-left origin, y-up).
  *
- * When a page has rotation set, the PDF viewer rotates the entire page including
- * anything drawn on it. So we must draw annotations in the INVERSE-rotated position
- * so that after the viewer applies rotation, they appear in the correct place.
+ * Annotations are stored in unrotated page space. The PDF page rotation is set
+ * separately via page.setRotation(), and the viewer rotates the entire page content
+ * (including our annotations) when displaying. So we only need to convert our
+ * coordinate system (top-left, y-down) to pdf-lib's (bottom-left, y-up).
  */
 function transformForRotation(
   x: number, y: number,
   w: number, h: number,
-  pageWidth: number, pageHeight: number,
-  rotation: number
+  _pageWidth: number, pageHeight: number,
+  _rotation: number
 ): { x: number; y: number; w: number; h: number; rotate: number } {
-  const rot = ((rotation % 360) + 360) % 360;
-  switch (rot) {
-    case 0:
-      // No rotation: just flip y for pdf-lib coordinate system
-      return { x, y: pageHeight - y - h, w, h, rotate: 0 };
-    case 90:
-      // Page rotated 90° CW in viewer. To counteract:
-      // draw in position that after 90° CW rotation lands where user intended
-      return { x: y, y: x, w: h, h: w, rotate: -90 };
-    case 180:
-      // Page rotated 180° in viewer. To counteract:
-      return { x: pageWidth - x - w, y: y, w, h, rotate: 180 };
-    case 270:
-      // Page rotated 270° CW in viewer. To counteract:
-      return { x: pageHeight - y - h, y: pageWidth - x - w, w: h, h: w, rotate: 90 };
-    default:
-      return { x, y: pageHeight - y - h, w, h, rotate: 0 };
-  }
+  return { x, y: pageHeight - y - h, w, h, rotate: 0 };
 }
 
 function transformPointForRotation(
   x: number, y: number,
-  pageWidth: number, pageHeight: number,
-  rotation: number
+  _pageWidth: number, pageHeight: number,
+  _rotation: number
 ): { x: number; y: number } {
-  const rot = ((rotation % 360) + 360) % 360;
-  switch (rot) {
-    case 0:
-      return { x, y: pageHeight - y };
-    case 90:
-      return { x: y, y: x };
-    case 180:
-      return { x: pageWidth - x, y };
-    case 270:
-      return { x: pageHeight - y, y: pageWidth - x };
-    default:
-      return { x, y: pageHeight - y };
-  }
+  return { x, y: pageHeight - y };
 }
 
 function drawAnnotationOnPage(

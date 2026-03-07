@@ -79,13 +79,13 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
       // Page coordinates are in the original unrotated page space
       switch (totalRotation) {
         case 90:
-          // 90° CW: screen (sx, sy) -> page (pageWidth - sy, sx)
-          return { x: pageWidth - screenY, y: screenX };
+          // 90° CW: screen (sx, sy) -> page (sy, pageHeight - sx)
+          return { x: screenY, y: pageHeight - screenX };
         case 180:
           return { x: pageWidth - screenX, y: pageHeight - screenY };
         case 270:
-          // 270° CW: screen (sx, sy) -> page (sy, pageHeight - sx)
-          return { x: screenY, y: pageHeight - screenX };
+          // 270° CW: screen (sx, sy) -> page (pageWidth - sy, sx)
+          return { x: pageWidth - screenY, y: screenX };
         default: // 0
           return { x: screenX, y: screenY };
       }
@@ -99,13 +99,13 @@ export function PageCanvas({ page, pageNumber, scale, rotation }: PageCanvasProp
     (pageX: number, pageY: number): { x: number; y: number } => {
       switch (totalRotation) {
         case 90:
-          // 90° CW: page (px, py) -> screen (py, pageWidth - px)
-          return { x: pageY, y: pageWidth - pageX };
+          // 90° CW: page (px, py) -> screen (pageHeight - py, px)
+          return { x: pageHeight - pageY, y: pageX };
         case 180:
           return { x: pageWidth - pageX, y: pageHeight - pageY };
         case 270:
-          // 270° CW: page (px, py) -> screen (pageHeight - py, px)
-          return { x: pageHeight - pageY, y: pageX };
+          // 270° CW: page (px, py) -> screen (py, pageWidth - px)
+          return { x: pageY, y: pageWidth - pageX };
         default: // 0
           return { x: pageX, y: pageY };
       }

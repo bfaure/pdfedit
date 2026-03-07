@@ -390,10 +390,23 @@
     visibility: visible !important;
   }
 
-  /* Hide annotation layers and text layers for cleaner print */
-  .annotation-layer,
+  /* Hide PDF.js text selection layer and loading indicators for print */
   .textLayer,
   .page-loading {
+    display: none !important;
+  }
+
+  /* Ensure user annotations are visible in print */
+  .annotation-layer {
+    display: block !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide annotation action buttons and selection UI in print */
+  .annotation-actions,
+  .resize-handle {
     display: none !important;
   }
 }

@@ -1,21 +1,26 @@
+import { useNavigate } from 'react-router-dom';
 import './LegalPages.css';
 
-interface LegalPagesProps {
+interface LegalPageProps {
   page: 'privacy' | 'terms';
-  onClose: () => void;
 }
 
-export function LegalPages({ page, onClose }: LegalPagesProps) {
-  return (
-    <div className="legal-modal-overlay" onClick={onClose}>
-      <div className="legal-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="legal-modal-close" onClick={onClose}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+export function LegalPage({ page }: LegalPageProps) {
+  const navigate = useNavigate();
 
+  return (
+    <div className="legal-page">
+      <div className="legal-page-header">
+        <div className="legal-page-header-inner">
+          <button className="legal-back-btn" onClick={() => navigate(-1)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Back
+          </button>
+        </div>
+      </div>
+      <div className="legal-page-body">
         <div className="legal-content">
           {page === 'privacy' ? <PrivacyPolicy /> : <TermsOfService />}
         </div>

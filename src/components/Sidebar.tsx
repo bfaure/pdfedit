@@ -28,6 +28,8 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
   const { state, pdfDocument, navigateToPage, rotatePage, deletePage, restorePage, reorderPages } = usePDF();
   const [thumbnails, setThumbnails] = useState<ThumbnailCache>({});
   const [loadingPages, setLoadingPages] = useState<Set<string>>(new Set());
+  // Effective rotation per page (includes PDF intrinsic page.rotate + user rotations)
+  const [pageEffectiveRotations, setPageEffectiveRotations] = useState<Map<number, number>>(new Map());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageNumber: number } | null>(null);
 
   // Multi-select state
@@ -67,6 +69,7 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
   useEffect(() => {
     if (!pdfDocument) {
       setThumbnails({});
+      setPageEffectiveRotations(new Map());
       return;
     }
 
@@ -82,6 +85,8 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
         setLoadingPages((prev) => new Set(prev).add(cacheKey));
         try {
           const page = await pdfDocument.getPage(i);
+          const effectiveRotation = ((page.rotate || 0) + totalRotation) % 360;
+          setPageEffectiveRotations((prev) => new Map(prev).set(i, effectiveRotation));
           const thumbnail = await getPageThumbnail(page, thumbnailSize, totalRotation);
           setThumbnails((prev) => ({ ...prev, [cacheKey]: thumbnail }));
         } catch (error) {
@@ -379,8 +384,9 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
           const isDragOver = dragOverIndex === index && draggedIndex !== index;
           const isSelected = selectedPages.has(pageNumber);
 
-          // Determine if page is in landscape orientation (90 or 270 degrees)
-          const isLandscape = totalRotation === 90 || totalRotation === 270;
+          // Determine if page is in landscape orientation, accounting for PDF intrinsic rotation
+          const effectiveRotation = pageEffectiveRotations.get(pageNumber) ?? totalRotation;
+          const isLandscape = effectiveRotation === 90 || effectiveRotation === 270;
 
           return (
             <div
