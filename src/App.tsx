@@ -66,6 +66,16 @@ function AppContent() {
         return;
       }
 
+      // While the shortcuts panel is open, Escape/? close it and other panel
+      // shortcuts are suppressed so panels don't open stacked behind the modal
+      if (showShortcutsPanel) {
+        if (e.key === 'Escape' || e.key === '?') {
+          e.preventDefault();
+          setShowShortcutsPanel(false);
+        }
+        return;
+      }
+
       // Ctrl+F for search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
@@ -83,7 +93,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.file]);
+  }, [state.file, showShortcutsPanel]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { usePDF } from '../contexts/PDFContext';
 import { getPageThumbnail } from '../utils/pdfUtils';
+import type { Annotation } from '../types/pdf';
 import './Sidebar.css';
 
 interface ThumbnailCache {
@@ -22,6 +23,16 @@ const getThumbnailSize = (sidebarWidth: number) => {
   const availableWidth = sidebarWidth - 40;
   // Scale from 100 at min width to 350 at max width
   return Math.max(100, Math.min(350, availableWidth));
+};
+
+// Cheap content hash so thumbnails regenerate when a page's annotations change
+const hashAnnotations = (annotations: Annotation[]): string => {
+  const s = JSON.stringify(annotations);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return h.toString(36);
 };
 
 export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
@@ -65,7 +76,27 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
     ? `${state.fileName}-${state.file.size}-${state.file.lastModified}`
     : '';
 
-  // Load thumbnails - regenerate when global rotation or thumbnail size changes
+  // Per-page annotations and their content hashes, so thumbnails show
+  // annotations and regenerate when they change
+  const pageAnnotations = useMemo(() => {
+    const map = new Map<number, Annotation[]>();
+    for (const annotation of state.annotations) {
+      const list = map.get(annotation.pageNumber);
+      if (list) list.push(annotation);
+      else map.set(annotation.pageNumber, [annotation]);
+    }
+    return map;
+  }, [state.annotations]);
+
+  const annotationHashes = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const [pageNumber, annotations] of pageAnnotations) {
+      map.set(pageNumber, hashAnnotations(annotations));
+    }
+    return map;
+  }, [pageAnnotations]);
+
+  // Load thumbnails - regenerate when global rotation, thumbnail size, or annotations change
   useEffect(() => {
     if (!pdfDocument) {
       setThumbnails({});
@@ -78,7 +109,7 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
         const pageRotation = state.pageRotations.get(i) || 0;
         const totalRotation = (state.rotation + pageRotation) % 360;
         // Include file ID and thumbnail size in cache key so thumbnails regenerate for new files
-        const cacheKey = `${fileId}-${i}-${totalRotation}-${thumbnailSize}`;
+        const cacheKey = `${fileId}-${i}-${totalRotation}-${thumbnailSize}-${annotationHashes.get(i) || ''}`;
 
         if (thumbnails[cacheKey]) continue;
 
@@ -87,7 +118,7 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
           const page = await pdfDocument.getPage(i);
           const effectiveRotation = ((page.rotate || 0) + totalRotation) % 360;
           setPageEffectiveRotations((prev) => new Map(prev).set(i, effectiveRotation));
-          const thumbnail = await getPageThumbnail(page, thumbnailSize, totalRotation);
+          const thumbnail = await getPageThumbnail(page, thumbnailSize, totalRotation, pageAnnotations.get(i));
           setThumbnails((prev) => ({ ...prev, [cacheKey]: thumbnail }));
         } catch (error) {
           console.error(`Error loading thumbnail for page ${i}:`, error);
@@ -102,7 +133,7 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
     };
 
     loadThumbnails();
-  }, [pdfDocument, fileId, state.rotation, state.pageRotations, thumbnailSize]);
+  }, [pdfDocument, fileId, state.rotation, state.pageRotations, thumbnailSize, pageAnnotations, annotationHashes]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, pageNumber: number) => {
     e.preventDefault();
@@ -380,7 +411,7 @@ export function Sidebar({ isOpen = true, onExtractPages }: SidebarProps) {
           const isDeleted = state.deletedPages.has(pageNumber);
           const pageRotation = state.pageRotations.get(pageNumber) || 0;
           const totalRotation = (state.rotation + pageRotation) % 360;
-          const cacheKey = `${fileId}-${pageNumber}-${totalRotation}-${thumbnailSize}`;
+          const cacheKey = `${fileId}-${pageNumber}-${totalRotation}-${thumbnailSize}-${annotationHashes.get(pageNumber) || ''}`;
           const isDragOver = dragOverIndex === index && draggedIndex !== index;
           const isSelected = selectedPages.has(pageNumber);
 

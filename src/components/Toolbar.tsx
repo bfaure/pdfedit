@@ -59,7 +59,17 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
 
   // Shapes dropdown state
   const [shapesOpen, setShapesOpen] = useState(false);
+  const [shapesMenuPos, setShapesMenuPos] = useState<{ top: number; left: number } | null>(null);
   const shapesRef = useRef<HTMLDivElement>(null);
+  const shapesBtnRef = useRef<HTMLButtonElement>(null);
+
+  const toggleShapesMenu = () => {
+    if (!shapesOpen && shapesBtnRef.current) {
+      const rect = shapesBtnRef.current.getBoundingClientRect();
+      setShapesMenuPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setShapesOpen(!shapesOpen);
+  };
 
   // Close shapes dropdown when clicking outside
   useEffect(() => {
@@ -115,6 +125,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
 
   return (
     <div className="toolbar">
+      <div className="toolbar-main">
       {/* Mobile sidebar toggle */}
       {isMobile && settings.showThumbnails && (
         <button
@@ -214,8 +225,9 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
             {shapes.length > 0 && (
               <div className="shapes-dropdown" ref={shapesRef}>
                 <button
+                  ref={shapesBtnRef}
                   className={`toolbar-btn tool-btn shapes-btn ${isShapeToolSelected ? 'active' : ''}`}
-                  onClick={() => setShapesOpen(!shapesOpen)}
+                  onClick={toggleShapesMenu}
                   title="Shapes"
                   disabled={!hasFile}
                 >
@@ -223,7 +235,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
                   <span className="dropdown-arrow">▾</span>
                 </button>
                 {shapesOpen && hasFile && (
-                  <div className="shapes-menu">
+                  <div className="shapes-menu" style={shapesMenuPos ? { top: shapesMenuPos.top, left: shapesMenuPos.left } : undefined}>
                     {shapes.map((shape) => (
                       <button
                         key={shape.id}
@@ -329,6 +341,7 @@ export function Toolbar({ isMobile, onToggleSidebar, sidebarOpen, visibleTools, 
           ⋮
         </button>
       )}
+      </div>
 
       {/* Tool options bar - shows when draw/highlight/shape tool is active */}
       {hasFile && !isMobile && (currentTool === 'draw' || currentTool === 'highlight' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'arrow') && (

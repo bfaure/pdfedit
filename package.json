@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node -e \"const fs=require('fs'); fs.copyFileSync('dist/index.html','dist/404.html'); fs.copyFileSync('dist/index.html','dist/editor.html');\"",
+    "build": "tsc -b && vite build && node -e \"const fs=require('fs'); for (const p of ['404','editor','guide','about','privacy','terms']) fs.copyFileSync('dist/index.html', 'dist/' + p + '.html');\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
